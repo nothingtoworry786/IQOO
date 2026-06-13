@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Daily Briefing | Strategic Intelligence</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#1b0091",
+                    "on-secondary-container": "#005669",
+                    "on-primary": "#2000a4",
+                    "on-tertiary": "#502500",
+                    "surface": "#13121b",
+                    "inverse-surface": "#e4e1ee",
+                    "primary-fixed": "#e3dfff",
+                    "inverse-on-surface": "#302f39",
+                    "surface-container-low": "#1b1b24",
+                    "background": "#13121b",
+                    "inverse-primary": "#4f44e2",
+                    "tertiary-fixed-dim": "#ffb785",
+                    "on-primary-fixed": "#100069",
+                    "on-tertiary-container": "#461f00",
+                    "secondary-fixed": "#b4ebff",
+                    "surface-variant": "#35343e",
+                    "on-surface-variant": "#c7c4d8",
+                    "surface-container-highest": "#35343e",
+                    "surface-dim": "#13121b",
+                    "on-error-container": "#ffdad6",
+                    "surface-bright": "#393842",
+                    "secondary": "#a2e7ff",
+                    "surface-container": "#1f1f28",
+                    "surface-container-high": "#2a2933",
+                    "on-background": "#e4e1ee",
+                    "on-surface": "#e4e1ee",
+                    "tertiary-fixed": "#ffdcc6",
+                    "tertiary": "#ffb785",
+                    "surface-tint": "#c4c0ff",
+                    "error-container": "#93000a",
+                    "outline-variant": "#464555",
+                    "error": "#ffb4ab",
+                    "secondary-container": "#00d2fd",
+                    "primary-container": "#8781ff",
+                    "primary-fixed-dim": "#c4c0ff",
+                    "tertiary-container": "#db761f",
+                    "on-secondary-fixed": "#001f27"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin": "32px",
+                    "gutter": "24px",
+                    "unit": "4px",
+                    "container-max": "1440px"
+            },
+            "fontFamily": {
+                    "display-lg": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "label-sm": ["JetBrains Mono"],
+                    "data-lg": ["JetBrains Mono"],
+                    "headline-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "data-md": ["JetBrains Mono"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "700"}],
+                    "data-lg": ["20px", {"lineHeight": "28px", "fontWeight": "500"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "data-md": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #0A0A0F;
+            color: #e4e1ee;
+            -webkit-font-smoothing: antialiased;
+        }
+        .hud-border {
+            border: 1px solid #2A2A3A;
+        }
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(147, 0, 10, 0.7); }
+            50% { box-shadow: 0 0 20px 10px rgba(147, 0, 10, 0); }
+        }
+        .critical-pulse {
+            animation: pulse-red 2s infinite;
+        }
+        .glass-card {
+            background: rgba(17, 17, 24, 0.8);
+            backdrop-filter: blur(12px);
+        }
+        .signal-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        @media (min-width: 1024px) {
+            .signal-grid {
+                grid-template-columns: repeat(12, 1fr);
+            }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-24">
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 border-b border-outline-variant bg-surface px-margin py-unit flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="shield">shield</span>
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tighter">Good morning, Ali 👋</h1>
+</div>
+<button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container-high transition-colors active:scale-95 duration-100">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+</header>
+<main class="pt-24 px-margin max-w-container-max mx-auto">
+<!-- Threat Level Meter Card -->
+<section class="mb-gutter">
+<div class="glass-card hud-border rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
+<!-- Background visual noise -->
+
+<div class="relative z-10 flex flex-col items-center md:items-start">
+<span class="font-label-sm text-label-sm text-on-surface-variant mb-2">CURRENT THREAT LEVEL</span>
+<div class="flex items-baseline gap-4">
+<h2 class="font-display-lg text-display-lg text-error-container tracking-widest font-black critical-pulse px-4 py-2 bg-error-container/10 rounded-lg">HIGH</h2>
+<div class="flex items-center gap-2 text-error">
+<span class="material-symbols-outlined" data-icon="warning" style="font-variation-settings: 'FILL' 1;">warning</span>
+<span class="font-headline-md text-headline-md">3 active threats</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mt-4 max-w-md">Immediate strategic response recommended. Competitive offensive maneuvers detected in Tier 2 regions.</p>
+</div>
+<div class="relative z-10 w-full md:w-64 h-32 flex items-center justify-center border-l border-outline-variant/30 pl-6">
+<div class="w-full h-full flex flex-col justify-between py-2">
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span>SYSTEM LOAD</span>
+<span>88%</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-error h-full" style="width: 88%"></div>
+</div>
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span>SIGNAL DENSITY</span>
+<span>CRITICAL</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-error h-full" style="width: 94%"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Signal Feed Header -->
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="radar">radar</span>
+<h3 class="font-headline-md text-headline-md font-bold">Signal Feed</h3>
+<span class="font-label-sm text-label-sm px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">LAST 24 HOURS</span>
+</div>
+<button class="flex items-center gap-2 font-label-sm text-label-sm text-secondary hover:underline">
+                FILTER BY SOURCE <span class="material-symbols-outlined text-sm" data-icon="filter_list">filter_list</span>
+</button>
+</div>
+<!-- Signal Cards Feed -->
+<div class="signal-grid">
+<!-- Signal 1: Yellow Prep -->
+<div class="md:col-span-12 glass-card hud-border rounded-xl p-6 hover:bg-surface-container-high/50 transition-all cursor-pointer group">
+<div class="flex flex-col md:flex-row gap-6">
+<div class="w-full md:w-48 h-32 rounded-lg bg-surface-container-lowest overflow-hidden relative">
+<img class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500" data-alt="A futuristic recruitment center in Bihar, India, with high-tech hologram displays showing professional career paths. The lighting is dominated by warm amber and yellow tones, creating a sense of growth and preparation. The aesthetic is clean, professional, and slightly industrial to match a strategic competitive intelligence dashboard." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDupCdTBW4luYC1ekH-BiqPS7C51mMiS_DnRODUfevGLF2kyC4I1lnTKrGm5P1pADfp_JAWyQNAv53gN41VJdHxAPfWiEoT5NXXZU8YZH-GNlhJ3H7nXXudhp5Pu_ExavoOt50VifkklNK2wPy3hA9RGCt5mtdQN8m18E___2f0g-rcEmEvJM1SuTHbpMbkAYulc_L25CIzlPTZ7OtT0zV30AyTq0kN1Zp1PuwOOH5PDSn00Nk4j1ir"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface to-transparent"></div>
+<span class="absolute bottom-2 left-2 font-label-sm text-label-sm bg-tertiary-container text-on-tertiary-container px-2 py-1 rounded">PREP</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-tertiary">SOURCE: PW</span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">2h ago</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="more_vert">more_vert</span>
+</div>
+<h4 class="font-headline-md text-headline-md mb-2">"34 hires in Bihar" — Aggressive Regional Expansion</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Competitor PW has finalized leases for 3 new offline centers and onboarded 34 senior educators in the Patna cluster.</p>
+<div class="flex items-center gap-6">
+<div class="flex-1 max-w-xs">
+<div class="flex justify-between font-label-sm text-label-sm mb-1">
+<span>INTENT SCORE</span>
+<span class="text-tertiary">74%</span>
+</div>
+<div class="w-full bg-surface-container-low h-1.5 rounded-full">
+<div class="bg-tertiary h-full rounded-full" style="width: 74%"></div>
+</div>
+</div>
+<div class="flex gap-2">
+<span class="font-label-sm text-label-sm px-2 py-1 border border-outline-variant rounded">HIRING</span>
+<span class="font-label-sm text-label-sm px-2 py-1 border border-outline-variant rounded">BIHAR</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Signal 2: Red Attack -->
+<div class="md:col-span-12 glass-card hud-border rounded-xl p-6 border-l-4 border-l-error hover:bg-surface-container-high/50 transition-all cursor-pointer group">
+<div class="flex flex-col md:flex-row gap-6">
+<div class="w-full md:w-48 h-32 rounded-lg bg-surface-container-lowest overflow-hidden relative">
+<img class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500" data-alt="A dark digital monitoring screen showing a high-frequency red line chart representing a sudden price drop or aggressive market attack. The atmosphere is intense, with deep shadows and vibrant crimson accents. It looks like a specialized data terminal in a military strategy room, focusing on a critical competitive event." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFlKJ6fNc-iPYdF8aFPZycekVblgETSb-JNOya3GQ0-HIBta4Xv1kiAyy9jhlHdbQxD0XB6_BmAqqhp6Psyce8Iiil0awAOGuPvredllpaEkv5O8-2TaY_r6DzaLmwD7dPgCCI0RZs-hHYxTshi_WkVK6jm_Vdto0q93oQptTPc24B37vNhSfuIn5NtIeT26I8nfD33a4d9upPot9Uo19ApdQ1DRZ9k7oCNYRIYgp1Dc4ytfOQVKD8"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface to-transparent"></div>
+<span class="absolute bottom-2 left-2 font-label-sm text-label-sm bg-error-container text-on-error-container px-2 py-1 rounded">ATTACK</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-error">SOURCE: PW</span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">5h ago</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="priority_high">priority_high</span>
+</div>
+<h4 class="font-headline-md text-headline-md mb-2">"₹299 JEE page" — Predator Pricing Live</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Direct landing pages discovered offering JEE Crash Courses at 90% discount. Traffic volume spiking from Tier 1 cities.</p>
+<div class="flex items-center gap-6">
+<div class="flex-1 max-w-xs">
+<div class="flex justify-between font-label-sm text-label-sm mb-1">
+<span>INTENT SCORE</span>
+<span class="text-error">98%</span>
+</div>
+<div class="w-full bg-surface-container-low h-1.5 rounded-full overflow-hidden">
+<div class="bg-error h-full animate-pulse" style="width: 98%"></div>
+</div>
+</div>
+<div class="flex gap-2">
+<span class="font-label-sm text-label-sm px-2 py-1 border border-error/50 text-error rounded">PRICING</span>
+<span class="font-label-sm text-label-sm px-2 py-1 border border-outline-variant rounded">JEE</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Signal 3: Green Opp -->
+<div class="md:col-span-12 glass-card hud-border rounded-xl p-6 hover:bg-surface-container-high/50 transition-all cursor-pointer group">
+<div class="flex flex-col md:flex-row gap-6">
+<div class="w-full md:w-48 h-32 rounded-lg bg-surface-container-lowest overflow-hidden relative">
+<img class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500" data-alt="A data dashboard displaying sentiment analysis charts in vibrant green, indicating an opportunity. The visual style is technological and clean, featuring thin grid lines and glowing data points. The mood is optimistic and strategic, suggesting a gap in the market or a competitor's weakness discovered through data." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBSIK0lQJFYAaH5USeMa3RAMgkmhIM_Q-Nr8IpmKrPN8-gk2vBY87zmVgcZu1DWvduv9q7PCnBSLqQo5QTZi87STPauVaNtE4bwmRFycZa-2erbtT7asmqxc9wfKUhqTUYbRzk-KYnVX1Mk_fr_JiTsskEEcnHwmlSz3FFqYG-2IjIst3WT_lZf-lkKf33k5tnzwUSkks6F9iaw7r-80y6f5QgXeIp5Lo8e5DfNuW9p8zrLlgYtmxuI"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface to-transparent"></div>
+<span class="absolute bottom-2 left-2 font-label-sm text-label-sm bg-secondary-container text-on-secondary-container px-2 py-1 rounded">OPP</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-secondary">SOURCE: Unacademy</span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">8h ago</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="star_rate">star_rate</span>
+</div>
+<h4 class="font-headline-md text-headline-md mb-2">"1-star reviews" — Service Outage Detected</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Unacademy's web app experiencing 15% failure rate in Mumbai. User sentiment is dropping rapidly. Market entry opportunity.</p>
+<div class="flex items-center gap-6">
+<div class="flex-1 max-w-xs">
+<div class="flex justify-between font-label-sm text-label-sm mb-1">
+<span>INTENT SCORE</span>
+<span class="text-secondary">42%</span>
+</div>
+<div class="w-full bg-surface-container-low h-1.5 rounded-full">
+<div class="bg-secondary h-full rounded-full" style="width: 42%"></div>
+</div>
+</div>
+<div class="flex gap-2">
+<span class="font-label-sm text-label-sm px-2 py-1 border border-outline-variant rounded">SENTIMENT</span>
+<span class="font-label-sm text-label-sm px-2 py-1 border border-outline-variant rounded">OUTAGE</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-safe bg-surface-container-lowest border-t border-outline-variant z-50 h-16 shadow-lg">
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl px-6 py-1 active:scale-90 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="home" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-sm text-label-sm">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:text-secondary active:scale-90 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="query_stats">query_stats</span>
+<span class="font-label-sm text-label-sm">Trends</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:text-secondary active:scale-90 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="dna">dns</span>
+<span class="font-label-sm text-label-sm">DNA</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:text-secondary active:scale-90 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span class="font-label-sm text-label-sm">Profile</span>
+</a>
+</nav>
+<!-- Micro-interaction: Animated Scan Line -->
+<div class="fixed top-0 left-0 w-full h-[2px] bg-secondary opacity-20 pointer-events-none z-[100]" id="scan-line"></div>
+<script>
+        // Simple scan line animation
+        const scanLine = document.getElementById('scan-line');
+        let pos = 0;
+        function animateScan() {
+            pos += 2;
+            if (pos > window.innerHeight) pos = 0;
+            scanLine.style.transform = `translateY(${pos}px)`;
+            requestAnimationFrame(animateScan);
+        }
+        animateScan();
+
+        // Simulate live signal pulse on cards occasionally
+        setInterval(() => {
+            const cards = document.querySelectorAll('.glass-card');
+            const randomCard = cards[Math.floor(Math.random() * cards.length)];
+            randomCard.classList.add('ring-2', 'ring-secondary/20');
+            setTimeout(() => {
+                randomCard.classList.remove('ring-2', 'ring-secondary/20');
+            }, 1000);
+        }, 5000);
+    </script>
+</body></html>

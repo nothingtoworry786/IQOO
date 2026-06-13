@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>War Room | Strategic Intelligence</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @keyframes pulse-red {
+            0%, 100% { 
+                box-shadow: 0 0 0 0 rgba(147, 0, 10, 0.4); 
+                border-color: rgba(255, 180, 171, 0.3); 
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 25px 8px rgba(147, 0, 10, 0.6); 
+                border-color: rgba(255, 180, 171, 1); 
+                transform: scale(1.005);
+            }
+        }
+        .critical-pulse {
+            animation: pulse-red 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes subtle-glow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(147, 0, 10, 0); }
+            50% { box-shadow: 0 0 10px 2px rgba(147, 0, 10, 0.5); }
+        }
+        .header-badge-pulse {
+            animation: subtle-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes slide-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .stagger-1 { animation: slide-in 0.5s ease-out forwards; animation-delay: 0.1s; opacity: 0; }
+        .stagger-2 { animation: slide-in 0.5s ease-out forwards; animation-delay: 0.2s; opacity: 0; }
+        .stagger-3 { animation: slide-in 0.5s ease-out forwards; animation-delay: 0.3s; opacity: 0; }
+
+        @keyframes scan-reveal {
+            0% { clip-path: inset(100% 0 0 0); opacity: 0; }
+            100% { clip-path: inset(0 0 0 0); opacity: 0.4; }
+        }
+        .map-scan {
+            animation: scan-reveal 4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .red-overlay-gradient {
+            background: radial-gradient(circle at top right, rgba(147, 0, 10, 0.15) 0%, transparent 60%);
+        }
+        .glass-red {
+            background: rgba(27, 27, 36, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(147, 0, 10, 0.3);
+        }
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to right, transparent, rgba(255, 180, 171, 0.2), transparent);
+            position: absolute;
+            top: 0;
+            animation: scan 4s linear infinite;
+            z-index: 20;
+        }
+        @keyframes scan {
+            from { top: 0; }
+            to { top: 100%; }
+        }
+        .btn-glow:hover {
+            box-shadow: 0 0 20px 5px rgba(147, 0, 10, 0.5);
+        }
+        .btn-glow:active {
+            box-shadow: 0 0 10px 2px rgba(147, 0, 10, 0.8);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-container": "#1b0091",
+                      "on-secondary-container": "#005669",
+                      "on-primary": "#2000a4",
+                      "on-tertiary": "#502500",
+                      "surface": "#13121b",
+                      "inverse-surface": "#e4e1ee",
+                      "primary-fixed": "#e3dfff",
+                      "inverse-on-surface": "#302f39",
+                      "surface-container-low": "#1b1b24",
+                      "background": "#13121b",
+                      "inverse-primary": "#4f44e2",
+                      "tertiary-fixed-dim": "#ffb785",
+                      "on-primary-fixed": "#100069",
+                      "on-tertiary-container": "#461f00",
+                      "secondary-fixed": "#b4ebff",
+                      "surface-variant": "#35343e",
+                      "on-surface-variant": "#c7c4d8",
+                      "surface-container-highest": "#35343e",
+                      "surface-dim": "#13121b",
+                      "on-error-container": "#ffdad6",
+                      "surface-bright": "#393842",
+                      "secondary": "#a2e7ff",
+                      "surface-container": "#1f1f28",
+                      "surface-container-high": "#2a2933",
+                      "on-background": "#e4e1ee",
+                      "on-surface": "#e4e1ee",
+                      "tertiary-fixed": "#ffdcc6",
+                      "tertiary": "#ffb785",
+                      "surface-tint": "#c4c0ff",
+                      "error-container": "#93000a",
+                      "outline-variant": "#464555",
+                      "error": "#ffb4ab",
+                      "secondary-fixed-dim": "#3cd7ff",
+                      "on-secondary-fixed-variant": "#004e5f",
+                      "on-primary-fixed-variant": "#3622ca",
+                      "outline": "#918fa1",
+                      "on-error": "#690005",
+                      "on-tertiary-fixed": "#301400",
+                      "primary": "#c4c0ff",
+                      "on-tertiary-fixed-variant": "#713700",
+                      "surface-container-lowest": "#0e0d16",
+                      "on-secondary": "#003642",
+                      "secondary-container": "#00d2fd",
+                      "primary-container": "#8781ff",
+                      "primary-fixed-dim": "#c4c0ff",
+                      "tertiary-container": "#db761f",
+                      "on-secondary-fixed": "#001f27"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin": "32px",
+                      "gutter": "24px",
+                      "unit": "4px",
+                      "container-max": "1440px"
+              },
+              "fontFamily": {
+                      "display-lg": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "label-sm": ["JetBrains Mono"],
+                      "data-lg": ["JetBrains Mono"],
+                      "headline-md": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "data-md": ["JetBrains Mono"],
+                      "body-md": ["Inter"]
+              },
+              "fontSize": {
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "700"}],
+                      "data-lg": ["20px", {"lineHeight": "28px", "fontWeight": "500"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "data-md": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen selection:bg-error-container selection:text-on-error-container">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 border-b border-outline-variant bg-surface flex items-center justify-between px-margin py-unit h-16">
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-surface-container-high transition-colors rounded-full active:scale-95">
+<span class="material-symbols-outlined text-primary">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tighter">STRATEGIC OVERVIEW</h1>
+</div>
+<div class="flex items-center gap-2">
+<div class="header-badge-pulse flex items-center gap-2 px-3 py-1 rounded-full border border-error-container bg-error-container/10">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-error">LIVE THREAT DETECTED</span>
+</div>
+<button class="p-2 hover:bg-surface-container-high transition-colors rounded-full relative">
+<span class="material-symbols-outlined text-primary">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+</div>
+</header>
+<main class="pt-24 pb-32 px-margin max-w-container-max mx-auto relative min-h-screen overflow-hidden">
+<!-- Background Atmospheric Element -->
+<div class="fixed inset-0 pointer-events-none red-overlay-gradient opacity-40"></div>
+<!-- Title Section -->
+<section class="flex items-end gap-3 mb-12">
+<h2 class="font-display-lg text-display-lg uppercase tracking-tight flex items-center gap-3">
+                ⚔️ War Room
+                <span class="inline-block w-4 h-4 bg-error rounded-full shadow-[0_0_15px_rgba(255,180,171,0.8)] animate-pulse"></span>
+</h2>
+<p class="font-label-sm text-label-sm text-outline mb-3">SECTOR: EDTECH COMPETITIVE INTELLIGENCE</p>
+</section>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Left Column: Critical Threat Card -->
+<div class="md:col-span-8 flex flex-col gap-gutter">
+<div class="critical-pulse bg-surface-container border border-error/50 rounded-xl p-6 relative overflow-hidden">
+<div class="scanline"></div>
+<div class="flex justify-between items-start mb-6">
+<div>
+<span class="font-label-sm text-label-sm text-error bg-error/10 px-2 py-1 rounded">PRIORITY: OMEGA</span>
+<h3 class="font-headline-lg text-headline-lg mt-2 font-bold text-on-surface">PhysicsWallah</h3>
+</div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-outline">THREAT MAGNITUDE</span>
+<div class="font-data-lg text-data-lg text-error">98.4%</div>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+<div class="p-4 bg-surface-container-low rounded-lg border border-outline-variant/30">
+<p class="font-label-sm text-label-sm text-outline uppercase mb-1">Human Capital</p>
+<div class="flex items-baseline gap-2">
+<span class="font-data-lg text-data-lg text-on-surface">34 hires</span>
+<span class="material-symbols-outlined text-error text-sm">trending_up</span>
+</div>
+<p class="text-[10px] font-label-sm text-error/70">7 days delta</p>
+</div>
+<div class="p-4 bg-surface-container-low rounded-lg border border-outline-variant/30">
+<p class="font-label-sm text-label-sm text-outline uppercase mb-1">Entry Pricing</p>
+<div class="flex items-baseline gap-2">
+<span class="font-data-lg text-data-lg text-on-surface">₹299 page</span>
+<span class="material-symbols-outlined text-secondary text-sm">info</span>
+</div>
+<p class="text-[10px] font-label-sm text-outline">Aggressive Under-pricing</p>
+</div>
+<div class="p-4 bg-surface-container-low rounded-lg border border-outline-variant/30">
+<p class="font-label-sm text-label-sm text-outline uppercase mb-1">Ad Burn Rate</p>
+<div class="flex items-baseline gap-2">
+<span class="font-data-lg text-data-lg text-error">↑ 340%</span>
+</div>
+<p class="text-[10px] font-label-sm text-error/70">Omnichannel Surge</p>
+</div>
+</div>
+<div class="space-y-3">
+<h4 class="font-label-sm text-label-sm text-outline uppercase flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">verified_user</span> Intel Evidence Logs
+                        </h4>
+<ul class="space-y-2">
+<li class="flex items-center justify-between p-3 bg-surface-container-high/50 rounded border-l-2 border-error">
+<span class="font-body-md text-body-md">Hiring focus: "Hyper-local Regional Content Lead"</span>
+<span class="font-label-sm text-label-sm text-outline">2h ago</span>
+</li>
+<li class="flex items-center justify-between p-3 bg-surface-container-high/50 rounded border-l-2 border-error">
+<span class="font-body-md text-body-md">Shadow pricing page detected at /tier2-launch-beta</span>
+<span class="font-label-sm text-label-sm text-outline">5h ago</span>
+</li>
+<li class="flex items-center justify-between p-3 bg-surface-container-high/50 rounded border-l-2 border-error">
+<span class="font-body-md text-body-md">Domain registration: PW-Bharat-Education.com</span>
+<span class="font-label-sm text-label-sm text-outline">1d ago</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- Prediction Box -->
+<div class="bg-primary/5 border border-primary/20 rounded-xl p-6 flex flex-col md:flex-row items-center gap-6">
+<div class="w-16 h-16 rounded-full border-2 border-dashed border-primary flex items-center justify-center animate-spin-slow">
+<span class="material-symbols-outlined text-primary text-3xl">psychology</span>
+</div>
+<div class="flex-1">
+<span class="font-label-sm text-label-sm text-primary uppercase">Engine Prediction</span>
+<h4 class="font-headline-md text-headline-md text-on-surface">Tier 2 market launch in 8-12 days</h4>
+<div class="flex items-center gap-4 mt-2">
+<div class="h-1 flex-1 bg-outline-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[92%]"></div>
+</div>
+<span class="font-label-sm text-label-sm text-primary">High strength (92%)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Battle Plan & Tactical Assets -->
+<div class="md:col-span-4 flex flex-col gap-gutter">
+<div class="glass-red rounded-xl p-6 flex-1 flex flex-col">
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-error">ads_click</span>
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface">YOUR BATTLE PLAN</h3>
+</div>
+<div class="space-y-4 flex-1">
+<!-- Action Card 1 -->
+<div class="stagger-1 group p-4 bg-surface-container-highest/40 hover:bg-surface-container-highest transition-all rounded-lg border border-outline-variant cursor-pointer active:scale-95">
+<div class="flex justify-between mb-2">
+<span class="font-label-sm text-label-sm text-primary">STRATEGY 01</span>
+<span class="font-label-sm text-label-sm text-on-secondary-container bg-secondary-container px-2 rounded">HIGH IMPACT</span>
+</div>
+<h4 class="font-body-lg text-body-lg font-bold text-on-surface group-hover:text-primary transition-colors">Launch trial phase</h4>
+<p class="font-body-md text-body-md text-outline mt-1">Pre-empt with regional micro-courses at ₹199.</p>
+</div>
+<!-- Action Card 2 -->
+<div class="stagger-2 group p-4 bg-surface-container-highest/40 hover:bg-surface-container-highest transition-all rounded-lg border border-outline-variant cursor-pointer active:scale-95">
+<div class="flex justify-between mb-2">
+<span class="font-label-sm text-label-sm text-primary">STRATEGY 02</span>
+<span class="font-label-sm text-label-sm text-on-tertiary-container bg-tertiary-container px-2 rounded">URGENT</span>
+</div>
+<h4 class="font-body-lg text-body-lg font-bold text-on-surface group-hover:text-primary transition-colors">Lock partnerships</h4>
+<p class="font-body-md text-body-md text-outline mt-1">Formalize local center contracts in MP &amp; Bihar.</p>
+</div>
+<!-- Action Card 3 -->
+<div class="stagger-3 group p-4 bg-surface-container-highest/40 hover:bg-surface-container-highest transition-all rounded-lg border border-outline-variant cursor-pointer active:scale-95">
+<div class="flex justify-between mb-2">
+<span class="font-label-sm text-label-sm text-primary">STRATEGY 03</span>
+<span class="font-label-sm text-label-sm text-outline bg-outline/20 px-2 rounded">MEDIUM</span>
+</div>
+<h4 class="font-body-lg text-body-lg font-bold text-on-surface group-hover:text-primary transition-colors">Double down on UX</h4>
+<p class="font-body-md text-body-md text-outline mt-1">Reduce latency for slow-network users by 40%.</p>
+</div>
+</div>
+<div class="mt-8">
+<button class="btn-glow w-full py-4 bg-error text-on-error font-headline-md text-headline-md font-bold rounded-xl shadow-[0_4px_20px_rgba(147,0,10,0.3)] hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-3">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            Mark as Reviewed
+                        </button>
+</div>
+</div>
+<!-- Market Visualizer Placeholder -->
+<div class="bg-surface-container rounded-xl p-4 h-48 relative overflow-hidden border border-outline-variant">
+<img class="map-scan absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-luminosity" data-alt="A dark, high-tech tactical map of India showing heatspots of education centers glowing in vibrant red and cyan. The visual style is futuristic and military-grade, with grid lines and data overlays indicating competitive density in specific cities like Patna and Lucknow. The overall mood is intense, serious, and focused on strategic dominance." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKXYjaXwKV6XEt3F893CYepYgCLvYfQSncoonVqZSV_unrJvvctugzU0rgf3Uz1gtBCSa6Ngj3ow0flDWy_dvsUfGaKJZsRIoynT80cAFkTZl0KyAWrYT55bXvQawM3wR8AuNJmMrJK-WNhH5NA0MbX15TZnNPeSM6CLY_sdwLUXpVFQy5Hng105vfd37wdTqXqjDxmSnbyNZdt5TvR0kAjgqls-_yFbW0c3_PfqCkCSNSPTaEVqbh"/>
+<div class="scanline"></div>
+<div class="relative z-10">
+<p class="font-label-sm text-label-sm text-outline uppercase">Regional Penetration Map</p>
+<div class="mt-2 flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<span class="font-label-sm text-label-sm text-on-surface">Target Zone: Bharat-North</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar (Mobile only visibility context implied by components logic) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-safe h-16 bg-surface-container-lowest border-t border-outline-variant z-50">
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2" href="#">
+<span class="material-symbols-outlined">home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl px-6 py-1" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">query_stats</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2" href="#">
+<span class="material-symbols-outlined">dns</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+</a>
+</nav>
+<script>
+        // Micro-interaction: Scale down on click for interactive elements
+        document.querySelectorAll('button, .cursor-pointer').forEach(el => {
+            el.addEventListener('mousedown', () => el.classList.add('scale-95'));
+            el.addEventListener('mouseup', () => el.classList.remove('scale-95'));
+            el.addEventListener('mouseleave', () => el.classList.remove('scale-95'));
+        });
+
+        // Simulating live intel feed
+        const logContainer = document.querySelector('ul.space-y-2');
+        const logs = [
+            "Market signal: Localized ad targeting detected in Lucknow/Kanpur.",
+            "Intel: PW hiring 12+ Sales heads for regional clusters.",
+            "Technical: Mobile app build 4.2.1 optimized for low-bandwidth devices."
+        ];
+        
+        setInterval(() => {
+            const lastLog = logContainer.lastElementChild;
+            if(!lastLog) return;
+            const newLog = lastLog.cloneNode(true);
+            newLog.querySelector('.font-body-md').innerText = logs[Math.floor(Math.random() * logs.length)];
+            newLog.querySelector('.font-label-sm').innerText = "Just now";
+            newLog.classList.add('animate-pulse');
+            logContainer.prepend(newLog);
+            if (logContainer.children.length > 5) {
+                logContainer.lastElementChild.remove();
+            }
+            setTimeout(() => newLog.classList.remove('animate-pulse'), 2000);
+        }, 8000);
+    </script>
+</body></html>

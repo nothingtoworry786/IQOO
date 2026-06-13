@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Strategic Overview - Onboarding</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#1b0091",
+                        "on-secondary-container": "#005669",
+                        "on-primary": "#2000a4",
+                        "on-tertiary": "#502500",
+                        "surface": "#13121b",
+                        "inverse-surface": "#e4e1ee",
+                        "primary-fixed": "#e3dfff",
+                        "inverse-on-surface": "#302f39",
+                        "surface-container-low": "#1b1b24",
+                        "background": "#13121b",
+                        "inverse-primary": "#4f44e2",
+                        "tertiary-fixed-dim": "#ffb785",
+                        "on-primary-fixed": "#100069",
+                        "on-tertiary-container": "#461f00",
+                        "secondary-fixed": "#b4ebff",
+                        "surface-variant": "#35343e",
+                        "on-surface-variant": "#c7c4d8",
+                        "surface-container-highest": "#35343e",
+                        "surface-dim": "#13121b",
+                        "on-error-container": "#ffdad6",
+                        "surface-bright": "#393842",
+                        "secondary": "#a2e7ff",
+                        "surface-container": "#1f1f28",
+                        "surface-container-high": "#2a2933",
+                        "on-background": "#e4e1ee",
+                        "on-surface": "#e4e1ee",
+                        "tertiary-fixed": "#ffdcc6",
+                        "tertiary": "#ffb785",
+                        "surface-tint": "#c4c0ff",
+                        "error-container": "#93000a",
+                        "outline-variant": "#464555",
+                        "error": "#ffb4ab",
+                        "secondary-fixed-dim": "#3cd7ff",
+                        "on-secondary-fixed-variant": "#004e5f",
+                        "on-primary-fixed-variant": "#3622ca",
+                        "outline": "#918fa1",
+                        "on-error": "#690005",
+                        "on-tertiary-fixed": "#301400",
+                        "primary": "#c4c0ff",
+                        "on-tertiary-fixed-variant": "#713700",
+                        "surface-container-lowest": "#0e0d16",
+                        "on-secondary": "#003642",
+                        "secondary-container": "#00d2fd",
+                        "primary-container": "#8781ff",
+                        "primary-fixed-dim": "#c4c0ff",
+                        "tertiary-container": "#db761f",
+                        "on-secondary-fixed": "#001f27"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin": "32px",
+                        "gutter": "24px",
+                        "unit": "4px",
+                        "container-max": "1440px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["JetBrains Mono"],
+                        "data-lg": ["JetBrains Mono"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "data-md": ["JetBrains Mono"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "700"}],
+                        "data-lg": ["20px", {"lineHeight": "28px", "fontWeight": "500"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "data-md": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0A0A0F;
+            color: #e4e1ee;
+            overflow-x: hidden;
+        }
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.15);
+        }
+        .glow-purple {
+            box-shadow: 0 0 20px rgba(196, 192, 255, 0.15);
+        }
+        .card-hover:hover {
+            transform: translateY(-4px);
+            border-color: rgba(145, 143, 161, 0.5);
+            background-color: #1A1A24;
+        }
+        .pulse-subtle {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .7; }
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex flex-col min-h-screen">
+<!-- TopAppBar Mapping -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-margin py-unit w-full border-b border-outline-variant bg-surface">
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-primary p-2 hover:bg-surface-container-high transition-colors active:scale-95 duration-100 rounded-full">arrow_back</button>
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tighter">STRATEGIC OVERVIEW</h1>
+</div>
+<div class="flex items-center">
+<button class="material-symbols-outlined text-primary p-2 hover:bg-surface-container-high transition-colors active:scale-95 duration-100 rounded-full">notifications</button>
+</div>
+</header>
+<main class="flex-grow flex items-center justify-center pt-24 pb-12 px-margin relative">
+<!-- Background Atmospheric Element -->
+<div class="absolute inset-0 overflow-hidden pointer-events-none">
+<div class="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]"></div>
+<div class="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-secondary/10 rounded-full blur-[120px]"></div>
+</div>
+<div class="max-w-container-max w-full z-10">
+<div class="text-center mb-12">
+<span class="font-label-sm text-label-sm text-secondary uppercase tracking-[0.2em] mb-4 block pulse-subtle">Deployment Ready</span>
+<h2 class="font-display-lg text-display-lg mb-4">Know their next move</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Set up in 30 seconds</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter max-w-4xl mx-auto">
+<!-- Card A: Drop a URL -->
+<div class="group relative bg-[#111118] border border-outline-variant p-8 rounded-xl card-hover transition-all duration-300 cursor-pointer glow-cyan">
+<div class="mb-8 w-14 h-14 rounded-lg bg-secondary-container/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined text-secondary-fixed-dim text-3xl">link</span>
+</div>
+<div class="space-y-4">
+<h3 class="font-headline-md text-headline-md text-secondary">Drop a URL</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">We'll find everything automatically</p>
+</div>
+<div class="mt-8 flex items-center text-secondary-fixed-dim font-label-sm text-label-sm uppercase tracking-wider">
+<span>Initiate Scan</span>
+<span class="material-symbols-outlined ml-2 group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</div>
+<!-- Signal Origin Chip -->
+<div class="absolute top-4 right-4 font-label-sm text-[10px] text-outline px-2 py-1 border border-outline-variant rounded bg-surface-container-lowest">
+                        SIG_INT / AUTO
+                    </div>
+</div>
+<!-- Card B: Fill Details -->
+<div class="group relative bg-[#111118] border border-outline-variant p-8 rounded-xl card-hover transition-all duration-300 cursor-pointer glow-purple">
+<div class="mb-8 w-14 h-14 rounded-lg bg-primary-container/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined text-primary text-3xl">edit</span>
+</div>
+<div class="space-y-4">
+<h3 class="font-headline-md text-headline-md text-primary">Fill Details</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Tell us about your company</p>
+</div>
+<div class="mt-8 flex items-center text-primary font-label-sm text-label-sm uppercase tracking-wider">
+<span>Manual Input</span>
+<span class="material-symbols-outlined ml-2 group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</div>
+<!-- Signal Origin Chip -->
+<div class="absolute top-4 right-4 font-label-sm text-[10px] text-outline px-2 py-1 border border-outline-variant rounded bg-surface-container-lowest">
+                        HUM_INT / MAN
+                    </div>
+</div>
+</div>
+<!-- Social Proof Footer -->
+<div class="mt-20 text-center flex flex-col items-center gap-6">
+<div class="h-px w-24 bg-gradient-to-r from-transparent via-outline-variant to-transparent"></div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest opacity-60">Used by 500+ Indian startups</p>
+<div class="flex flex-wrap justify-center gap-8 opacity-40 grayscale hover:grayscale-0 transition-all duration-500">
+<!-- Placeholder Logos with descriptive alts -->
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest"></div>
+<span class="font-label-sm text-label-sm">TECH_NODE</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest"></div>
+<span class="font-label-sm text-label-sm">CYBER_IND</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest"></div>
+<span class="font-label-sm text-label-sm">CORE_SYNC</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest"></div>
+<span class="font-label-sm text-label-sm">STRAT_FLOW</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar Suppression logic: Suppressed for Transactional/Onboarding Flow -->
+<script>
+        // Micro-interaction for cards
+        document.querySelectorAll('.card-hover').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                // Potential sound effect or haptic trigger point
+            });
+            
+            card.addEventListener('click', () => {
+                card.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    card.style.transform = '';
+                }, 100);
+            });
+        });
+
+        // Atmospheric canvas effect could be added here for the high-tech feel
+    </script>
+</body></html>
