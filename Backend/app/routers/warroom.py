@@ -7,8 +7,8 @@ import logging
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 
-from app.models.competitor import Competitor
 from app.models.warroom import WarRoomReport
+from app.schemas.requests import AnalyzeRequest
 from app.schemas.warroom import WarRoomReportCreate, WarRoomReportResponse
 from app.services.database import get_db
 from app.services.warroom import generate_war_room_report
@@ -32,8 +32,6 @@ async def analyze_competitor_warroom(
     This runs all 4 AI agents (Marketing, Product, Sales, Strategy)
     and returns a consolidated strategic report.
     """
-    from app.schemas.requests import AnalyzeRequest
-
     request = AnalyzeRequest(
         competitor_name=competitor_name,
         city=city,

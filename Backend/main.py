@@ -93,7 +93,6 @@ async def seed_mock_data() -> None:
             count = result.scalar()
             if count and count > 0:
                 logger.info("Database already seeded, skipping")
-                await session.close()
                 return
 
             # ── Batch 1: Competitors (no FK dependencies) ──

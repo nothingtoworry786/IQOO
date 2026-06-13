@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException, Query, status
+from sqlalchemy import select
 
 from app.models.competitive_dna import CompetitiveDNA
 from app.models.competitor import Competitor
@@ -62,7 +63,6 @@ async def create_dna_pattern(data: CompetitiveDNACreate) -> CompetitiveDNARespon
     """Create a new DNA pattern."""
     # Verify competitor exists
     async with get_db() as db:
-        from sqlalchemy import select
         result = await db.execute(select(Competitor).where(Competitor.id == data.competitor_id))
         if not result.scalar_one_or_none():
             raise HTTPException(status_code=404, detail="Competitor not found")
@@ -125,7 +125,6 @@ async def analyze_competitor_dna_by_name(
 ) -> DNAAnalysisResult:
     """Run full DNA analysis on a competitor by name."""
     async with get_db() as db:
-        from sqlalchemy import select
         result = await db.execute(
             select(Competitor).where(Competitor.name == competitor_name)
         )
