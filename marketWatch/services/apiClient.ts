@@ -21,9 +21,7 @@ import { Platform } from "react-native";
  * On iOS simulator and web, localhost resolves correctly.
  */
 function resolveBaseUrl(): string {
-  if (Platform.OS === "android") {
-    return "http://10.0.2.2:8000/api/v1";
-  }
+  // Return localhost for all platforms. For Android physical devices, we rely on `adb reverse tcp:8000 tcp:8000`
   return "http://localhost:8000/api/v1";
 }
 

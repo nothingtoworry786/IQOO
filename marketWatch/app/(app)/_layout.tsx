@@ -1,32 +1,35 @@
 import { Tabs } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { LayoutDashboard, Users, MessageCircle } from "lucide-react-native";
 
 /**
  * Main app tab layout — 3 tabs: Home, Competitors, Chatbot.
- * Dark theme with neon cyan accent.
+ * Dark theme with Strategy Purple accent.
  */
 export default function AppLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: "#0F172A",
-          borderTopColor: "#334155",
-          borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 6,
-        },
-        tabBarActiveTintColor: "#22D3EE",
-        tabBarInactiveTintColor: "#64748B",
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-          letterSpacing: 0.5,
-        },
-      }}
-    >
+    <>
+      <StatusBar style="light" />
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: "#0F172A",
+            borderTopColor: "#334155",
+            borderTopWidth: 1,
+            height: 64,
+            paddingBottom: 8,
+            paddingTop: 6,
+          },
+          tabBarActiveTintColor: "#22D3EE",
+          tabBarInactiveTintColor: "#64748B",
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: "600",
+            letterSpacing: 0.5,
+          },
+        }}
+      >
       <Tabs.Screen
         name="index"
         options={{
@@ -55,5 +58,6 @@ export default function AppLayout() {
         }}
       />
     </Tabs>
+    </>
   );
 }

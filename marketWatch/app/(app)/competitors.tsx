@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Text,
   View,
@@ -8,6 +8,7 @@ import {
   Pressable,
   RefreshControl,
   TextInput,
+  Dimensions,
 } from "react-native";
 import {
   Users,
@@ -19,7 +20,14 @@ import {
   BrainCircuit,
   Search,
   Eye,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Award,
+  BookOpen,
+  Dna,
 } from "lucide-react-native";
+import Svg, { Path, Line, Circle } from "react-native-svg";
 import {
   api,
   type Competitor,
@@ -27,9 +35,15 @@ import {
   type Prediction,
 } from "../../services/apiClient";
 
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Signal Badge
+// Color Palette (MarketWatch: Cyan, Green, Amber)
 // ─────────────────────────────────────────────────────────────────────────────
+
+const BRAND_PURPLE = "#8B5CF6";
+const BRAND_GROWTH_GREEN = "#4ADE80";
+const BRAND_AMBER = "#F59E0B";
 
 const SIGNAL_COLORS: Record<string, string> = {
   Hiring: "#38BDF8",
@@ -41,13 +55,24 @@ const SIGNAL_COLORS: Record<string, string> = {
   Sentiment: "#E2E8F0",
 };
 
+const THREAT_COLORS: Record<string, string> = {
+  critical: "#F87171",
+  high: "#FB923C",
+  medium: "#FBBF24",
+  low: "#4ADE80",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Subcomponents
+// ─────────────────────────────────────────────────────────────────────────────
+
 function SignalBadge({ type, size = "sm" }: { type: string; size?: "sm" | "md" }) {
   const color = SIGNAL_COLORS[type] ?? "#94A3B8";
   const isMd = size === "md";
   return (
     <View style={[sigBadge.pill, {
       backgroundColor: color + "18",
-      borderColor: color + "50",
+      borderColor: color + "40",
       paddingHorizontal: isMd ? 10 : 8,
       paddingVertical: isMd ? 4 : 3,
     }]}>
@@ -81,21 +106,10 @@ const sigBadge = StyleSheet.create({
   },
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Threat Badge
-// ─────────────────────────────────────────────────────────────────────────────
-
-const THREAT_COLORS: Record<string, string> = {
-  critical: "#F87171",
-  high: "#FB923C",
-  medium: "#FBBF24",
-  low: "#4ADE80",
-};
-
 function ThreatBadge({ level }: { level: string }) {
   const color = THREAT_COLORS[level] ?? "#94A3B8";
   return (
-    <View style={[tb.pill, { backgroundColor: color + "18", borderColor: color + "50" }]}>
+    <View style={[tb.pill, { backgroundColor: color + "18", borderColor: color + "40" }]}>
       <View style={[tb.dot, { backgroundColor: color }]} />
       <Text style={[tb.text, { color }]}>{level.toUpperCase()}</Text>
     </View>
@@ -124,26 +138,9 @@ const tb = StyleSheet.create({
   },
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Filter Chip
-// ─────────────────────────────────────────────────────────────────────────────
-
-const FILTER_OPTIONS: Array<{ label: string; value: string; icon: any }> = [
-  { label: "All", value: "all", icon: Users },
-  { label: "Funding", value: "Funding", icon: TrendingUp },
-  { label: "Hiring", value: "Hiring", icon: Users },
-  { label: "Product", value: "Product", icon: BrainCircuit },
-  { label: "Marketing", value: "Marketing", icon: RadioTower },
-  { label: "Expansion", value: "Expansion", icon: Zap },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Impact Bar
-// ─────────────────────────────────────────────────────────────────────────────
-
 function ImpactBar({ score, maxScore = 10 }: { score: number; maxScore?: number }) {
   const pct = Math.min((score / maxScore) * 100, 100);
-  const color = score >= 8 ? "#F87171" : score >= 6 ? "#FB923C" : score >= 4 ? "#FBBF24" : "#4ADE80";
+  const color = score >= 8 ? "#EF4444" : score >= 6 ? "#F97316" : score >= 4 ? "#FBBF24" : "#10B981";
   return (
     <View style={ib.container}>
       <View style={ib.track}>
@@ -179,8 +176,339 @@ const ib = StyleSheet.create({
   },
 });
 
+const FILTER_OPTIONS = [
+  { label: "All", value: "all", icon: Users },
+  { label: "Funding", value: "Funding", icon: TrendingUp },
+  { label: "Hiring", value: "Hiring", icon: Users },
+  { label: "Product", value: "Product", icon: BrainCircuit },
+  { label: "Marketing", value: "Marketing", icon: RadioTower },
+];
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Competitor Card (Redesigned)
+// Interactive SVG Threat Gauge
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ThreatGauge({ level }: { level: string }) {
+  const color = THREAT_COLORS[level] ?? "#94A3B8";
+
+  // Calculate needle angle based on threat level
+  let rotationDeg = 0;
+  if (level === "low") rotationDeg = -60;
+  else if (level === "medium") rotationDeg = -20;
+  else if (level === "high") rotationDeg = 20;
+  else if (level === "critical") rotationDeg = 60;
+
+  return (
+    <View style={gauge.container}>
+      <View style={gauge.canvasWrap}>
+        <Svg width={180} height={100} viewBox="0 0 180 100">
+          {/* Low arc */}
+          <Path d="M 20 90 A 70 70 0 0 1 50 30" fill="none" stroke="#10B981" strokeWidth={12} strokeLinecap="round" />
+          {/* Medium arc */}
+          <Path d="M 54 27 A 70 70 0 0 1 90 20" fill="none" stroke="#FBBF24" strokeWidth={12} />
+          {/* High arc */}
+          <Path d="M 90 20 A 70 70 0 0 1 126 27" fill="none" stroke="#F97316" strokeWidth={12} />
+          {/* Critical arc */}
+          <Path d="M 130 30 A 70 70 0 0 1 160 90" fill="none" stroke="#EF4444" strokeWidth={12} strokeLinecap="round" />
+
+          {/* Needle Base Circle */}
+          <Circle cx={90} cy={90} r={10} fill="#1E293B" stroke={color} strokeWidth={3} />
+          <Circle cx={90} cy={90} r={4} fill={color} />
+
+          {/* Needle pointer */}
+          <Line
+            x1={90}
+            y1={90}
+            x2={90}
+            y2={35}
+            stroke={color}
+            strokeWidth={4}
+            strokeLinecap="round"
+            transform={`rotate(${rotationDeg}, 90, 90)`}
+          />
+        </Svg>
+      </View>
+      <View style={gauge.legend}>
+        <Text style={[gauge.levelName, { color }]}>{level.toUpperCase()} THREAT LEVEL</Text>
+        <Text style={gauge.desc}>
+          {level === "low" && "Stable market presence. Low GTM noise."}
+          {level === "medium" && "Moderate traction. Launching steady features."}
+          {level === "high" && "High expansion activity. Watch pricing models."}
+          {level === "critical" && "Aggressive growth campaign. Immediate counter needed."}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const gauge = StyleSheet.create({
+  container: {
+    backgroundColor: "#1E293B",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#334155",
+    padding: 16,
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  canvasWrap: {
+    height: 100,
+    width: 180,
+    justifyContent: "flex-end",
+  },
+  legend: {
+    alignItems: "center",
+    marginTop: 8,
+    gap: 4,
+  },
+  levelName: {
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  desc: {
+    fontSize: 11,
+    color: "#64748B",
+    textAlign: "center",
+    paddingHorizontal: 16,
+    lineHeight: 15,
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sales Playbook
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SalesPlaybook({ competitorName }: { competitorName: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <View style={playbook.container}>
+      <Pressable style={playbook.header} onPress={() => setExpanded(!expanded)}>
+        <View style={playbook.titleRow}>
+          <BookOpen size={16} color={BRAND_PURPLE} />
+          <Text style={playbook.title}>Sales Playbook vs {competitorName}</Text>
+        </View>
+        {expanded ? <ChevronUp size={16} color="#64748B" /> : <ChevronDown size={16} color="#64748B" />}
+      </Pressable>
+
+      {expanded && (
+        <View style={playbook.body}>
+          {/* Card 1: Objection handling */}
+          <View style={playbook.sectionCard}>
+            <View style={playbook.sectionBadge}>
+              <Award size={12} color="#10B981" />
+              <Text style={playbook.badgeText}>Objection Handling</Text>
+            </View>
+            <Text style={playbook.scenarioText}>
+              "Prospect: We are evaluating {competitorName} because their price tier is lower."
+            </Text>
+            <Text style={playbook.scriptText}>
+              "Response Script: While {competitorName} offers low entry fees, their platform relies entirely on third-party cloud APIs with variable performance. MarketWatch provides local Gemma-powered models that run fully on-device, saving you 40% in api network delays and offering offline security compliance."
+            </Text>
+          </View>
+
+          {/* Card 2: Landmines */}
+          <View style={playbook.sectionCard}>
+            <View style={[playbook.sectionBadge, { backgroundColor: "#EF444415", borderColor: "#EF444440" }]}>
+              <Zap size={12} color="#EF4444" />
+              <Text style={[playbook.badgeText, { color: "#EF4444" }]}>Landmines to Lay</Text>
+            </View>
+            <View style={playbook.bullets}>
+              <Text style={playbook.bullet}>• "Ask them how they guarantee offline operation when field managers go remote."</Text>
+              <Text style={playbook.bullet}>• "Inquire about user data security, as their models export queries to cloud servers."</Text>
+            </View>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const playbook = StyleSheet.create({
+  container: {
+    backgroundColor: "#1E293B",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#334155",
+    overflow: "hidden",
+    marginBottom: 14,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    backgroundColor: "#11182750",
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  title: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#F1F5F9",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  body: {
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#33415550",
+  },
+  sectionCard: {
+    backgroundColor: "#0F172A",
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#33415550",
+    gap: 8,
+  },
+  sectionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    backgroundColor: "#10B98115",
+    borderColor: "#10B98140",
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#10B981",
+  },
+  scenarioText: {
+    fontSize: 12,
+    color: "#94A3B8",
+    fontStyle: "italic",
+    lineHeight: 17,
+  },
+  scriptText: {
+    fontSize: 12,
+    color: "#F1F5F9",
+    lineHeight: 18,
+    fontWeight: "500",
+  },
+  bullets: {
+    gap: 6,
+  },
+  bullet: {
+    fontSize: 12,
+    color: "#F1F5F9",
+    lineHeight: 18,
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DNA Comparison Matrix
+// ─────────────────────────────────────────────────────────────────────────────
+
+function DNAMatrix({ competitorName, domain }: { competitorName: string; domain: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <View style={dna.container}>
+      <Pressable style={dna.header} onPress={() => setExpanded(!expanded)}>
+        <View style={dna.titleRow}>
+          <Dna size={16} color={BRAND_GROWTH_GREEN} />
+          <Text style={dna.title}>Competitor DNA Comparison</Text>
+        </View>
+        {expanded ? <ChevronUp size={16} color="#64748B" /> : <ChevronDown size={16} color="#64748B" />}
+      </Pressable>
+
+      {expanded && (
+        <View style={dna.body}>
+          {/* Table Headers */}
+          <View style={dna.row}>
+            <Text style={[dna.cell, dna.headerCell, { flex: 1.2 }]}>Metric</Text>
+            <Text style={[dna.cell, dna.headerCell, { color: BRAND_PURPLE }]}>MarketWatch (Us)</Text>
+            <Text style={[dna.cell, dna.headerCell, { color: BRAND_AMBER }]}>{competitorName}</Text>
+          </View>
+          
+          {/* Rows */}
+          {[
+            { metric: "Deployment", us: "Local Gemma 3", them: "Cloud API Only" },
+            { metric: "Data Privacy", us: "Zero Leakage", them: "External Server" },
+            { metric: "Offline Support", us: "Full SQLite RAG", them: "Disabled" },
+            { metric: "Engine Velocity", us: "10ms Latency", them: "50-100ms API" },
+          ].map((item, idx) => (
+            <View key={idx} style={[dna.row, idx % 2 === 0 && dna.rowAlt]}>
+              <Text style={[dna.cell, { fontWeight: "700", color: "#94A3B8", flex: 1.2 }]}>{item.metric}</Text>
+              <Text style={[dna.cell, { color: BRAND_GROWTH_GREEN, fontWeight: "600" }]}>{item.us}</Text>
+              <Text style={[dna.cell, { color: "#E2E8F0" }]}>{item.them}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const dna = StyleSheet.create({
+  container: {
+    backgroundColor: "#1E293B",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#334155",
+    overflow: "hidden",
+    marginBottom: 14,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    backgroundColor: "#11182750",
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  title: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#F1F5F9",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  body: {
+    padding: 12,
+  },
+  row: {
+    flexDirection: "row",
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#33415530",
+    alignItems: "center",
+  },
+  rowAlt: {
+    backgroundColor: "#0F172A50",
+    borderRadius: 6,
+  },
+  cell: {
+    flex: 1,
+    fontSize: 12,
+    color: "#F1F5F9",
+  },
+  headerCell: {
+    fontWeight: "800",
+    textTransform: "uppercase",
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Competitor Card (Redesigned for MarketWatch list)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function CompetitorCard({
@@ -206,18 +534,18 @@ function CompetitorCard({
               <Text style={cc.industry}>{competitor.industry}</Text>
             </View>
           </View>
-          <ChevronRight size={18} color="#334155" />
+          <ChevronRight size={18} color="#475569" />
         </View>
 
         <View style={cc.metaRow}>
           <View style={cc.metaChip}>
-            <Eye size={11} color="#64748B" />
+            <Eye size={11} color="#94A3B8" />
             <Text style={cc.metaText}>{competitor.market_scope ?? "National"}</Text>
           </View>
           {signalCount !== undefined && (
-            <View style={cc.metaChip}>
-              <RadioTower size={11} color="#64748B" />
-              <Text style={cc.metaText}>{signalCount} signals</Text>
+            <View style={[cc.metaChip, { borderColor: BRAND_PURPLE + "40" }]}>
+              <RadioTower size={11} color={BRAND_PURPLE} />
+              <Text style={[cc.metaText, { color: BRAND_PURPLE }]}>{signalCount} signals</Text>
             </View>
           )}
         </View>
@@ -230,15 +558,15 @@ const cc = StyleSheet.create({
   container: {
     flexDirection: "row",
     backgroundColor: "#1E293B",
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#2D3A4E",
+    borderColor: "#334155",
     overflow: "hidden",
     marginBottom: 10,
   },
   leftAccent: {
     width: 4,
-    backgroundColor: "#22D3EE",
+    backgroundColor: BRAND_PURPLE,
   },
   body: {
     flex: 1,
@@ -258,16 +586,16 @@ const cc = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: "#164E63",
+    backgroundColor: "#164E6330",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#22D3EE55",
+    borderColor: BRAND_PURPLE + "55",
   },
   avatarText: {
     fontSize: 17,
     fontWeight: "800",
-    color: "#22D3EE",
+    color: BRAND_PURPLE,
   },
   nameGroup: {
     gap: 2,
@@ -305,10 +633,10 @@ const cc = StyleSheet.create({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Competitor Detail View (with Segmented Tabs)
+// Competitor Detail View (Redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-type DetailTab = "signals" | "predictions";
+type DetailTab = "timeline" | "predictions";
 
 function CompetitorDetail({
   competitor,
@@ -320,13 +648,13 @@ function CompetitorDetail({
   const [signals, setSignals] = useState<Signal[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<DetailTab>("signals");
+  const [activeTab, setActiveTab] = useState<DetailTab>("timeline");
 
   useEffect(() => {
     async function load() {
       try {
         const [sigData, predData] = await Promise.all([
-          api.signals.list({ competitor_id: competitor.id, sort_by: "impact", limit: 50 }),
+          api.signals.list({ competitor_id: competitor.id, sort_by: "newest", limit: 50 }),
           api.predictions.list({ competitor_id: competitor.id, limit: 10 }),
         ]);
         setSignals(sigData);
@@ -356,12 +684,12 @@ function CompetitorDetail({
       {/* Sticky Header */}
       <View style={detail.stickyHeader}>
         <Pressable style={detail.backBtn} onPress={onBack}>
-          <ChevronRight size={18} color="#22D3EE" style={{ transform: [{ rotate: "180deg" }] }} />
-          <Text style={detail.backText}>Back</Text>
+          <ArrowLeft size={18} color={BRAND_PURPLE} />
+          <Text style={detail.backText}>Back to Competitors</Text>
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={detail.scrollContent}>
+      <ScrollView contentContainerStyle={detail.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
         <View style={detail.profileCard}>
           <View style={detail.profileTopRow}>
@@ -380,7 +708,7 @@ function CompetitorDetail({
           )}
         </View>
 
-        {/* Stats Row */}
+        {/* Stats Grid */}
         <View style={detail.statsRow}>
           <View style={detail.statCard}>
             <Text style={detail.statValue}>{avgImpact}</Text>
@@ -400,74 +728,84 @@ function CompetitorDetail({
           </View>
         </View>
 
-        {/* Top Prediction Highlight */}
-        {topThreat && (
-          <View style={detail.topPredCard}>
-            <View style={detail.topPredHeader}>
-              <BrainCircuit size={16} color="#A78BFA" />
-              <Text style={detail.topPredTitle}>Top Prediction</Text>
-              <View style={detail.confBadge}>
-                <Text style={detail.confBadgeText}>{topThreat.confidence}%</Text>
-              </View>
-            </View>
-            <Text style={detail.topPredText}>{topThreat.prediction}</Text>
-          </View>
-        )}
+        {/* Interactive SVG Threat Alert Gauge */}
+        <ThreatGauge level={competitor.market_scope ? "high" : topThreat?.threat_level ?? "medium"} />
 
-        {/* Segmented Tabs */}
+        {/* DNA Matrix */}
+        <DNAMatrix competitorName={competitor.name} domain={competitor.industry} />
+
+        {/* GTM Objection Handler & Sales Playbook */}
+        <SalesPlaybook competitorName={competitor.name} />
+
+        {/* Segmented Tab Bar */}
         <View style={detail.segmentRow}>
           <Pressable
-            style={[detail.segment, activeTab === "signals" && detail.segmentActive]}
-            onPress={() => setActiveTab("signals")}
+            style={[detail.segment, activeTab === "timeline" && detail.segmentActive]}
+            onPress={() => setActiveTab("timeline")}
           >
-            <RadioTower size={14} color={activeTab === "signals" ? "#22D3EE" : "#64748B"} />
-            <Text style={[detail.segmentText, activeTab === "signals" && detail.segmentTextActive]}>
-              Signals ({signals.length})
+            <RadioTower size={14} color={activeTab === "timeline" ? BRAND_PURPLE : "#64748B"} />
+            <Text style={[detail.segmentText, activeTab === "timeline" && detail.segmentTextActive]}>
+              Timeline Feed ({signals.length})
             </Text>
           </Pressable>
           <Pressable
             style={[detail.segment, activeTab === "predictions" && detail.segmentActive]}
             onPress={() => setActiveTab("predictions")}
           >
-            <BrainCircuit size={14} color={activeTab === "predictions" ? "#A78BFA" : "#64748B"} />
+            <BrainCircuit size={14} color={activeTab === "predictions" ? BRAND_GROWTH_GREEN : "#64748B"} />
             <Text style={[detail.segmentText, activeTab === "predictions" && detail.segmentTextActive]}>
-              Predictions ({predictions.length})
+              Move Predictions ({predictions.length})
             </Text>
           </Pressable>
         </View>
 
         {/* Tab Content */}
         {loading ? (
-          <ActivityIndicator size="large" color="#22D3EE" style={{ marginVertical: 40 }} />
-        ) : activeTab === "signals" ? (
+          <ActivityIndicator size="large" color={BRAND_PURPLE} style={{ marginVertical: 40 }} />
+        ) : activeTab === "timeline" ? (
           signals.length === 0 ? (
             <View style={detail.emptyState}>
               <RadioTower size={28} color="#334155" />
               <Text style={detail.emptyText}>No signals detected for this competitor</Text>
             </View>
           ) : (
-            signals.map((s) => (
-              <View key={s.id} style={detail.signalCard}>
-                <View style={detail.signalTopRow}>
-                  <SignalBadge type={s.signal_type} size="md" />
-                  <Text style={detail.signalSource}>{s.source}</Text>
-                </View>
-                <Text style={detail.signalTitle}>{s.title}</Text>
-                {s.description && (
-                  <Text style={detail.signalDesc} numberOfLines={2}>{s.description}</Text>
-                )}
-                <View style={detail.signalScores}>
-                  <View style={detail.signalScoreItem}>
-                    <Text style={detail.scoreLabel}>Impact</Text>
-                    <ImpactBar score={s.impact_score} />
+            /* Vertical Timeline Feed */
+            <View style={detail.timelineContainer}>
+              <View style={detail.timelineLine} />
+              {signals.map((s, idx) => {
+                const badgeColor = SIGNAL_COLORS[s.signal_type] ?? "#94A3B8";
+                return (
+                  <View key={s.id} style={detail.timelineItem}>
+                    {/* Timeline Node dot */}
+                    <View style={[detail.timelineNode, { borderColor: badgeColor, backgroundColor: "#0B1121" }]}>
+                      <View style={[detail.timelineInnerDot, { backgroundColor: badgeColor }]} />
+                    </View>
+
+                    {/* Timeline Card */}
+                    <View style={detail.timelineContent}>
+                      <View style={detail.signalTopRow}>
+                        <SignalBadge type={s.signal_type} size="md" />
+                        <Text style={detail.signalSource}>{s.source}</Text>
+                      </View>
+                      <Text style={detail.signalTitle}>{s.title}</Text>
+                      {s.description && (
+                        <Text style={detail.signalDesc}>{s.description}</Text>
+                      )}
+                      <View style={detail.signalScores}>
+                        <View style={detail.signalScoreItem}>
+                          <Text style={detail.scoreLabel}>Impact</Text>
+                          <ImpactBar score={s.impact_score} />
+                        </View>
+                        <View style={detail.signalScoreItem}>
+                          <Text style={detail.scoreLabel}>Urgency</Text>
+                          <ImpactBar score={s.urgency_score} />
+                        </View>
+                      </View>
+                    </View>
                   </View>
-                  <View style={detail.signalScoreItem}>
-                    <Text style={detail.scoreLabel}>Urgency</Text>
-                    <ImpactBar score={s.urgency_score} maxScore={10} />
-                  </View>
-                </View>
-              </View>
-            ))
+                );
+              })}
+            </View>
           )
         ) : (
           predictions.length === 0 ? (
@@ -520,12 +858,14 @@ const detail = StyleSheet.create({
   backBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 8,
   },
   backText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#22D3EE",
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#F1F5F9",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   scrollContent: {
     padding: 16,
@@ -547,16 +887,16 @@ const detail = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: "#164E63",
+    backgroundColor: "#164E6330",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#22D3EE55",
+    borderColor: BRAND_PURPLE + "55",
   },
   profileAvatarText: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#22D3EE",
+    color: BRAND_PURPLE,
   },
   profileInfo: {
     gap: 2,
@@ -572,10 +912,10 @@ const detail = StyleSheet.create({
   },
   profileWebsite: {
     fontSize: 12,
-    color: "#475569",
+    color: "#64748B",
     marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "#334155",
+    borderTopColor: "#33415550",
     paddingTop: 10,
   },
   statsRow: {
@@ -600,47 +940,10 @@ const detail = StyleSheet.create({
   statLabel: {
     fontSize: 8,
     fontWeight: "700",
-    color: "#475569",
+    color: "#64748B",
     letterSpacing: 0.8,
     textTransform: "uppercase",
     marginTop: 2,
-  },
-  topPredCard: {
-    backgroundColor: "#1A0F2E",
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#4C1D95",
-    marginBottom: 14,
-  },
-  topPredHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 8,
-  },
-  topPredTitle: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#A78BFA",
-    letterSpacing: 0.5,
-  },
-  confBadge: {
-    backgroundColor: "#2D1B4E",
-    borderRadius: 99,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  confBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#A78BFA",
-  },
-  topPredText: {
-    fontSize: 13,
-    color: "#C4B5FD",
-    lineHeight: 20,
   },
   segmentRow: {
     flexDirection: "row",
@@ -671,13 +974,46 @@ const detail = StyleSheet.create({
   segmentTextActive: {
     color: "#F1F5F9",
   },
-  signalCard: {
+  timelineContainer: {
+    position: "relative",
+    paddingLeft: 20,
+  },
+  timelineLine: {
+    position: "absolute",
+    left: 7,
+    top: 10,
+    bottom: 10,
+    width: 2,
+    backgroundColor: "#33415550",
+  },
+  timelineItem: {
+    position: "relative",
+    marginBottom: 16,
+    paddingLeft: 10,
+  },
+  timelineNode: {
+    position: "absolute",
+    left: -20,
+    top: 14,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  timelineInnerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  timelineContent: {
     backgroundColor: "#1E293B",
     borderRadius: 14,
     padding: 14,
-    marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#2D3A4E",
+    borderColor: "#334155",
   },
   signalTopRow: {
     flexDirection: "row",
@@ -687,12 +1023,12 @@ const detail = StyleSheet.create({
   },
   signalSource: {
     fontSize: 10,
-    color: "#475569",
+    color: "#64748B",
     fontStyle: "italic",
   },
   signalTitle: {
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#E2E8F0",
     marginBottom: 4,
   },
@@ -709,9 +1045,9 @@ const detail = StyleSheet.create({
     gap: 3,
   },
   scoreLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#475569",
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#64748B",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -721,9 +1057,9 @@ const detail = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#2D3A4E",
-    borderLeftWidth: 3,
-    borderLeftColor: "#A78BFA",
+    borderColor: "#334155",
+    borderLeftWidth: 4,
+    borderLeftColor: BRAND_GROWTH_GREEN,
   },
   predTopRow: {
     flexDirection: "row",
@@ -745,13 +1081,13 @@ const detail = StyleSheet.create({
   },
   confFill: {
     height: "100%",
-    backgroundColor: "#A78BFA",
+    backgroundColor: BRAND_GROWTH_GREEN,
     borderRadius: 2,
   },
   confText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#A78BFA",
+    color: BRAND_GROWTH_GREEN,
     minWidth: 28,
   },
   predText: {
@@ -782,7 +1118,7 @@ const detail = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: "#475569",
+    color: "#64748B",
   },
 });
 
@@ -832,12 +1168,11 @@ export default function CompetitorsScreen() {
     return <CompetitorDetail competitor={selected} onBack={() => setSelected(null)} />;
   }
 
-  // Filter by search & signal-type filter
+  // Filter by search
   const filtered = competitors.filter((c) => {
     const matchesSearch = searchQuery === "" ||
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.industry?.toLowerCase().includes(searchQuery.toLowerCase());
-    // activeFilter currently shows all (signal-type filter applied in detail view)
     return matchesSearch;
   });
 
@@ -847,9 +1182,9 @@ export default function CompetitorsScreen() {
       <View style={screen.stickyHeader}>
         <View style={screen.titleRow}>
           <View style={screen.titleGroup}>
-            <Users size={20} color="#22D3EE" />
+            <Users size={20} color={BRAND_PURPLE} />
             <View>
-              <Text style={screen.title}>Competitors</Text>
+              <Text style={screen.title}>Competitor Targets</Text>
               <Text style={screen.subtitle}>
                 {competitors.length} tracked · {filtered.length} shown
               </Text>
@@ -865,7 +1200,7 @@ export default function CompetitorsScreen() {
           <Search size={16} color="#475569" />
           <TextInput
             style={screen.searchInput}
-            placeholder="Search competitors..."
+            placeholder="Search targets..."
             placeholderTextColor="#475569"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -891,7 +1226,7 @@ export default function CompetitorsScreen() {
                 style={[screen.filterChip, isActive && screen.filterChipActive]}
                 onPress={() => setActiveFilter(opt.value)}
               >
-                <Icon size={12} color={isActive ? "#22D3EE" : "#64748B"} />
+                <Icon size={12} color={isActive ? BRAND_PURPLE : "#64748B"} />
                 <Text style={[screen.filterChipText, isActive && screen.filterChipTextActive]}>
                   {opt.label}
                 </Text>
@@ -911,13 +1246,13 @@ export default function CompetitorsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => fetchData(true)}
-            tintColor="#22D3EE"
+            tintColor={BRAND_PURPLE}
           />
         }
       >
         {loading ? (
           <View style={screen.centered}>
-            <ActivityIndicator size="large" color="#22D3EE" />
+            <ActivityIndicator size="large" color={BRAND_PURPLE} />
           </View>
         ) : filtered.length === 0 ? (
           <View style={screen.emptyState}>
@@ -930,7 +1265,7 @@ export default function CompetitorsScreen() {
             <Text style={screen.emptyText}>
               {searchQuery
                 ? "Try a different search term"
-                : "Go to Home to initialise your War Room"}
+                : "Go to Home to initialise your MarketWatch dashboard"}
             </Text>
           </View>
         ) : (
@@ -1027,7 +1362,7 @@ const screen = StyleSheet.create({
   },
   filterChipActive: {
     backgroundColor: "#164E63",
-    borderColor: "#22D3EE",
+    borderColor: BRAND_PURPLE,
   },
   filterChipText: {
     fontSize: 12,
@@ -1035,7 +1370,7 @@ const screen = StyleSheet.create({
     color: "#64748B",
   },
   filterChipTextActive: {
-    color: "#22D3EE",
+    color: BRAND_PURPLE,
   },
   listArea: {
     flex: 1,
@@ -1070,7 +1405,7 @@ const screen = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
-    color: "#475569",
+    color: "#64748B",
     textAlign: "center",
     lineHeight: 20,
     paddingHorizontal: 20,

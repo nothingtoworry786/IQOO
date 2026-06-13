@@ -41,7 +41,7 @@ export default function RootIndex() {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#22D3EE" />
+        <ActivityIndicator size="large" color="#8B5CF6" />
         <Text style={styles.loadingText}>INITIALISING…</Text>
       </View>
     );

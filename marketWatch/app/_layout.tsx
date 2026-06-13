@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PersonaProvider } from "../store/personaStore";
+import AnimatedSplashScreen from "../src/components/AnimatedSplashScreen";
 
 /**
  * Root layout component that wraps the entire application with:
@@ -18,25 +19,16 @@ import { PersonaProvider } from "../store/personaStore";
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
 
-  useEffect(() => {
-    // Simulate brief loading for asset initialisation
-    const timer = setTimeout(() => setIsReady(true), 300);
-    return () => clearTimeout(timer);
-  }, []);
-
   if (!isReady) {
     return (
       <SafeAreaProvider>
         <GestureHandlerRootView style={styles.root}>
-          <StatusBar style="light" />
-          <View style={styles.splashContainer}>
-            <ActivityIndicator size="large" color="#22D3EE" />
-            <Text style={styles.splashText}>INITIALISING WAR ROOM…</Text>
-          </View>
+          <AnimatedSplashScreen onFinish={() => setIsReady(true)} />
         </GestureHandlerRootView>
       </SafeAreaProvider>
     );
   }
+
 
   return (
     <SafeAreaProvider>
