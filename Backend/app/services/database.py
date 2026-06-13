@@ -42,11 +42,21 @@ async_session_factory = async_sessionmaker(
 
 async def init_db() -> None:
     async with engine.begin() as conn:
-        # Enable pgvector extension for PostgreSQL
         if _is_postgres:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             logger.info("pgvector extension enabled")
         await conn.run_sync(Base.metadata.create_all)
+        # Migrate: add new columns to existing tables (SQLite ALTER TABLE is limited)
+        _new_cols = [
+            ("competitors", "is_active", "BOOLEAN DEFAULT 1"),
+            ("predictions", "is_war_room_trigger", "BOOLEAN DEFAULT 0"),
+        ]
+        for table, col, definition in _new_cols:
+            try:
+                await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {definition}"))
+                logger.info("Migration: added %s.%s", table, col)
+            except Exception:
+                pass  # column already exists
     logger.info("Database tables initialised")
 
 

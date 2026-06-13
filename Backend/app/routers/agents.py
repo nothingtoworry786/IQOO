@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.agents.marketing import MarketingAgent
@@ -156,36 +156,49 @@ async def chat_with_ai(data: ChatRequest) -> ChatResponse:
     return ChatResponse(reply=mock_responses["default"], model_used="mock")
 
 
-@router.get("/activity", response_model=list[dict])
-async def get_agent_activity() -> list[dict]:
-    """Return activity summary from all 4 agents (mock data for now)."""
-    return [
-        {
-            "agent": "MarketingAI",
-            "status": "idle",
-            "last_run": "2025-06-12T14:30:00Z",
-            "total_analyses": 42,
-            "avg_confidence": 0.76,
-        },
-        {
-            "agent": "ProductAI",
-            "status": "idle",
-            "last_run": "2025-06-12T14:28:00Z",
-            "total_analyses": 38,
-            "avg_confidence": 0.81,
-        },
-        {
-            "agent": "SalesAI",
-            "status": "idle",
-            "last_run": "2025-06-12T14:25:00Z",
-            "total_analyses": 35,
-            "avg_confidence": 0.73,
-        },
-        {
-            "agent": "StrategyAI",
-            "status": "idle",
-            "last_run": "2025-06-12T14:35:00Z",
-            "total_analyses": 40,
-            "avg_confidence": 0.79,
-        },
-    ]
+@router.get("/activity", response_model=dict, summary="Live agent activity feed")
+async def get_agent_activity(
+    limit: int = Query(30, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user_id: str = Query("system"),
+) -> dict:
+    """
+    Return the agent decision log — every run/skip decision made by autonomous agents,
+    most recent first. Powers the live Activity Feed on the frontend.
+    """
+    from app.models.agent_log import AgentLog
+    from app.models.competitor import Competitor
+    from app.services.database import async_session_factory
+    from sqlalchemy import select, desc, outerjoin
+
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(AgentLog, Competitor.name)
+            .outerjoin(Competitor, AgentLog.competitor_id == Competitor.id)
+            .where(AgentLog.user_id == user_id)
+            .order_by(desc(AgentLog.created_at))
+            .offset(offset)
+            .limit(limit)
+        )
+        rows = result.all()
+
+    return {
+        "activity": [
+            {
+                "id": log.id,
+                "agent_name": log.agent_name,
+                "action": log.action,
+                "reasoning": log.reasoning,
+                "competitor_name": comp_name,
+                "created_at": log.created_at.isoformat(),
+            }
+            for log, comp_name in rows
+        ]
+    }
+
+
+@router.get("/status", response_model=dict, summary="Autonomy system status")
+async def get_autonomy_status_endpoint() -> dict:
+    """Return current state of the autonomous agent system."""
+    from app.agents.autonomy_orchestrator import get_autonomy_status
+    return await get_autonomy_status()

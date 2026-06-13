@@ -52,7 +52,12 @@ class Settings:
         self.OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
         self.OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
         self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-        self.ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+        self.ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+        # ── Supabase / new stack ──────────────────────────────────────────────
+        self.SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+        self.SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
+        self.SERPAPI_KEY: str = os.getenv("SERPAPI_KEY", "")
+        self.CHROMADB_PATH: str = os.getenv("CHROMADB_PATH", "./chromadb_data")
         if "postgresql" in self.DATABASE_URL:
             logger.info("Using PostgreSQL database (%s...)", self.DATABASE_URL.split("@")[-1] if "@" in self.DATABASE_URL else self.DATABASE_URL[:30])
         self._validate()

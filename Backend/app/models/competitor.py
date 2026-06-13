@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import String, Text
+from sqlalchemy import Boolean, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, gen_uuid
@@ -16,6 +16,7 @@ class Competitor(Base, TimestampMixin):
     industry: Mapped[str] = mapped_column(String(128), nullable=False)
     website: Mapped[str | None] = mapped_column(String(512), nullable=True)
     market_scope: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("1"))
 
     # Relationships
     signals = relationship("Signal", back_populates="competitor", lazy="selectin")

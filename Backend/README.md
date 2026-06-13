@@ -1,335 +1,224 @@
-# MarketWatch — Competitive Intelligence Analysis Engine
+# CompetitorGPT / MarketWatch — Backend
 
-> **Enterprise-grade competitive intelligence platform** powered by FastAPI, SQLAlchemy, Pinecone, Neo4j, and AI agents (Groq / OpenRouter / Claude).
+Competitive intelligence engine: **FastAPI + Supabase + Anthropic Claude + SerpAPI + ChromaDB**.
 
-Track competitors, analyse signals, predict moves, and get War Room recommendations — all through a single API.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    MarketWatch API                       │
-│                    FastAPI + Uvicorn                     │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐  │
-│  │Users     │  │Competitors│  │Signals   │  │Predictns│  │
-│  │ CRUD     │  │ +Momentum │  │ +Patterns│  │ AI-based│  │
-│  └──────────┘  └──────────┘  └──────────┘  └─────────┘  │
-│                                                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐  │
-│  │War Room  │  │Alerts    │  │AI Agents │  │Graph    │  │
-│  │ Reports  │  │ Threshold│  │ M/P/S/S  │  │ Neo4j   │  │
-│  └──────────┘  └──────────┘  └──────────┘  └─────────┘  │
-│                                                          │
-├─────────────────────────────────────────────────────────┤
-│                    Storage Layer                          │
-│  ┌──────────────────┐  ┌──────────┐  ┌───────────────┐   │
-│  │  PostgreSQL       │  │ Pinecone │  │  Neo4j        │   │
-│  │  (SQLAlchemy)     │  │ Vectors  │  │  Graph        │   │
-│  │  ┌──────────────┐ │  │ DNA      │  │  Relationships│   │
-│  │  │ SQLite (mock) │ │  │ Patterns │  │  Dict (mock)  │   │
-│  │  │ Postgres(real)│ │  │ Memory   │  │  Neo4j (real)  │   │
-│  │  └──────────────┘ │  └──────────┘  └───────────────┘   │
-│  └──────────────────┘                                      │
-├─────────────────────────────────────────────────────────┤
-│                    AI Provider Layer                      │
-│  ┌──────────┐  ┌──────────────┐  ┌──────────────────┐    │
-│  │  Groq    │  │  OpenRouter  │  │  Anthropic/Claude │    │
-│  └──────────┘  └──────────────┘  └──────────────────┘    │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Storage Modes
-
-All three databases support **mock** (in-memory or SQLite — no external services needed) and **real** (production connections) modes, toggled via `DATABASE_MODE=mock|real` in `.env`.
-
-| Database | Mock Mode | Real Mode |
-|---|---|---|
-| PostgreSQL | SQLite via aiosqlite | asyncpg |
-| Pinecone | In-memory dict with cosine similarity | Pinecone cloud index |
-| Neo4j | In-memory dict-based graph | Neo4j Aura / local |
+Submit a company intake form → autonomous 7-step pipeline discovers competitors, collects live signals, builds behavioral DNA profiles, and triggers War Room alerts for high-threat events.
 
 ---
 
 ## Quick Start
 
 ```bash
-# Clone and enter the backend directory
-cd Backend
+# 1. Install dependencies
+pip install -r requirements.txt
+# or with uv: uv sync
 
-# Copy and configure environment
+# 2. Copy env template
 cp .env.example .env
-# Edit .env with your API keys (or use mock defaults)
+# Fill in SUPABASE_URL, SUPABASE_KEY, ANTHROPIC_API_KEY
 
-# Install dependencies
-uv sync --extra dev
+# 3. Run Supabase schema (copy SQL below into Supabase SQL Editor)
 
-# Start the server
-uv run uvicorn main:app --reload
-
-# Open the API docs
-open http://localhost:8000/docs
+# 4. Start server
+uvicorn main:app --reload --port 8000
+# Docs at http://localhost:8000/docs
 ```
 
 ---
+
+## Supabase SQL Schema
+
+Paste into **Supabase Dashboard → SQL Editor → New Query**:
+
+```sql
+-- Company profiles (one per user)
+CREATE TABLE IF NOT EXISTS company_profiles (
+  user_id          TEXT PRIMARY KEY,
+  company_name     TEXT NOT NULL,
+  website          TEXT,
+  description      TEXT,
+  industry         TEXT,
+  sub_category     TEXT,
+  key_features     JSONB DEFAULT '[]',
+  geographic_focus TEXT,
+  target_customers TEXT,
+  business_model   TEXT,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Async pipeline jobs
+CREATE TABLE IF NOT EXISTS discovery_jobs (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    TEXT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'pending',  -- pending|running|completed|failed
+  stage      TEXT,
+  progress   INTEGER DEFAULT 0,               -- 0-100
+  result     JSONB,
+  error      TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Competitors
+CREATE TABLE IF NOT EXISTS competitors (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         TEXT NOT NULL,
+  name            TEXT NOT NULL,
+  normalized_name TEXT NOT NULL,
+  website         TEXT,
+  industry        TEXT,
+  color_accent    TEXT DEFAULT '#6C63FF',
+  is_active       BOOLEAN DEFAULT TRUE,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS competitors_user_norm
+  ON competitors (user_id, normalized_name);
+
+-- Competitor profiles (1:1)
+CREATE TABLE IF NOT EXISTS competitor_profiles (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  competitor_id    UUID REFERENCES competitors(id) ON DELETE CASCADE,
+  description      TEXT,
+  threat_level     TEXT DEFAULT 'MEDIUM',
+  threat_reason    TEXT,
+  competitive_edge TEXT,
+  discovery_pass   INTEGER DEFAULT 1,
+  updated_at       TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (competitor_id)
+);
+
+-- Signals
+CREATE TABLE IF NOT EXISTS signals (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id             TEXT NOT NULL,
+  competitor_id       UUID REFERENCES competitors(id) ON DELETE CASCADE,
+  type                TEXT,
+  title               TEXT,
+  description         TEXT,
+  source              TEXT,
+  intent_score        INTEGER DEFAULT 0,
+  meaning             TEXT,
+  raw_data            JSONB,
+  is_war_room_trigger BOOLEAN DEFAULT FALSE,
+  detected_at         TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS signals_competitor_idx ON signals (competitor_id);
+CREATE INDEX IF NOT EXISTS signals_user_date_idx  ON signals (user_id, detected_at DESC);
+
+-- DNA profiles (1:1)
+CREATE TABLE IF NOT EXISTS dna_profiles (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  competitor_id         UUID REFERENCES competitors(id) ON DELETE CASCADE,
+  user_id               TEXT,
+  price_aggression      FLOAT,
+  launch_style          TEXT,
+  expansion_speed       TEXT,
+  expansion_trigger     TEXT,
+  signal_to_launch_days INTEGER,
+  known_weakness        TEXT,
+  patterns              JSONB DEFAULT '[]',
+  raw_signals_count     INTEGER DEFAULT 0,
+  behavioral_summary    TEXT,
+  updated_at            TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (competitor_id)
+);
+
+-- Agent activity log
+CREATE TABLE IF NOT EXISTS agent_logs (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       TEXT DEFAULT 'system',
+  competitor_id UUID REFERENCES competitors(id) ON DELETE SET NULL,
+  agent_name    TEXT NOT NULL,
+  action        TEXT NOT NULL,
+  reasoning     TEXT,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS agent_logs_user_idx ON agent_logs (user_id, created_at DESC);
+```
+
+---
+
+## API Reference
+
+### Discovery Pipeline (fire-and-poll)
+
+**Start discovery:**
+```
+POST /api/onboarding/discover
+{
+  "user_id": "user_abc",
+  "company_name": "IQOO",
+  "website": "https://iqoo.com",
+  "description": "Quick-commerce platform in India"
+}
+→ { "job_id": "uuid-...", "status": "pending" }
+```
+
+**Poll status (every 2-3s):**
+```
+GET /api/onboarding/discover/status/{job_id}
+→ { "status": "running", "stage": "Validating 8 companies...", "progress": 55 }
+→ { "status": "completed", "progress": 100, "result": { "competitors": [...] } }
+```
+
+### Market Map
+```
+GET /api/market-map?user_id=user_abc
+```
+Returns: competitors by threat level, by discovery method, 24h signal counts, DNA profiles.
+
+### Competitors
+```
+GET    /api/competitors?user_id=user_abc
+GET    /api/competitors/{id}
+POST   /api/competitors
+PUT    /api/competitors/{id}
+DELETE /api/competitors/{id}
+```
+
+### Signals
+```
+GET /api/signals?user_id=user_abc&competitor_id=&limit=50
+GET /api/signals/high-intent?user_id=user_abc&threshold=70
+GET /api/signals/war-room-triggers?user_id=user_abc
+GET /api/signals/{id}
+```
+
+### DNA Profiles
+```
+GET  /api/dna?user_id=user_abc
+GET  /api/dna/{competitor_id}
+POST /api/dna/{competitor_id}/rebuild?user_id=user_abc
+```
+
+---
+
+## Architecture
+
+```
+POST /api/onboarding/discover
+  └─ asyncio.create_task(run_discovery_pipeline)
+       Step 1  scrape_and_analyze(website)          ← httpx + BS4
+       Step 2  claude.enrich_company_profile()       ← Anthropic
+       Step 3  claude.discover_competitors()         ← Pass 1 (5 names)
+       Step 4  SerpAPI searches + claude.extract_new_competitors()  ← Pass 2
+       Step 5  claude.validate_competitor() × N     ← Pass 3
+       Step 6  INSERT into competitors + competitor_profiles
+       Step 7  hunt_signals() × N (parallel)        ← SerpAPI × 4 query types
+               └─ INSERT into signals
+               └─ chromadb.add_signals()
+               └─ forge_dna_profile() if signals ≥ 5
+       Step 8  UPDATE discovery_jobs SET status='completed', result={...}
+```
 
 ## Environment Variables
 
-| Variable | Default | Description |
+| Variable | Required | Description |
 |---|---|---|
-| `HOST` | `0.0.0.0` | Server bind address |
-| `PORT` | `8000` | Server port |
-| `LOG_LEVEL` | `INFO` | Logging level |
-| `DATABASE_MODE` | `mock` | `mock` or `real` |
-| `AI_PROVIDER` | `groq` | `groq`, `openrouter`, or `anthropic` |
-| `DATABASE_URL` | `sqlite+aiosqlite:///...` | PostgreSQL connection string (real mode) |
-| `GROQ_API_KEY` | — | Groq API key |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Groq model name |
-| `OPENROUTER_API_KEY` | — | OpenRouter API key |
-| `OPENROUTER_MODEL` | `openai/gpt-4o-mini` | OpenRouter model name |
-| `ANTHROPIC_API_KEY` | — | Anthropic/Claude API key |
-| `ANTHROPIC_MODEL` | `claude-sonnet-4-20250514` | Claude model name |
-| `PINECONE_API_KEY` | — | Pinecone API key (real mode) |
-| `PINECONE_INDEX_NAME` | `competitive-dna` | Pinecone index name |
-| `NEO4J_URI` | `bolt://localhost:7687` | Neo4j connection URI (real mode) |
-| `NEO4J_USER` | `neo4j` | Neo4j username |
-| `NEO4J_PASSWORD` | — | Neo4j password |
-
----
-
-## API Endpoints
-
-### Health
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/` | Health check (returns `{"status": "running", "project": "MarketWatch"}`) |
-
-### Analysis
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/v1/analyze` | Analyse competitor signals and get AI prediction |
-
-### Users
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/v1/users/` | List all users |
-| `POST` | `/api/v1/users/` | Create a new user |
-| `GET` | `/api/v1/users/{id}` | Get user by ID |
-| `PUT` | `/api/v1/users/{id}` | Update a user |
-| `DELETE` | `/api/v1/users/{id}` | Delete a user |
-
-### Competitors
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/v1/competitors/` | List competitors (filter by `user_id`) |
-| `POST` | `/api/v1/competitors/` | Create a competitor (also creates graph node) |
-| `GET` | `/api/v1/competitors/{id}` | Get competitor with signals & predictions |
-| `PUT` | `/api/v1/competitors/{id}` | Update a competitor |
-| `DELETE` | `/api/v1/competitors/{id}` | Delete a competitor |
-| `GET` | `/api/v1/competitors/{id}/momentum` | Get momentum score & recent signals |
-
-### Signals
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/v1/signals/` | List signals (filter by `competitor_id`, `signal_type`) |
-| `POST` | `/api/v1/signals/` | Create a signal (also stores in vector memory) |
-| `GET` | `/api/v1/signals/{id}` | Get signal by ID |
-
-### Predictions
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/v1/predictions/` | List predictions (filter by `competitor_id`) |
-| `POST` | `/api/v1/predictions/` | Create a prediction |
-| `GET` | `/api/v1/predictions/{id}` | Get prediction by ID |
-
-### War Room
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/v1/warroom/analyze` | Run full AI-powered War Room analysis (all 4 agents) |
-| `POST` | `/api/v1/warroom/reports` | Create a War Room report |
-| `GET` | `/api/v1/warroom/reports` | List War Room reports |
-| `GET` | `/api/v1/warroom/reports/{id}` | Get War Room report by ID |
-
-### Alerts
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/v1/alerts/` | List alerts (filter by `user_id`) |
-| `POST` | `/api/v1/alerts/` | Create an alert |
-| `PUT` | `/api/v1/alerts/{id}` | Update an alert |
-| `DELETE` | `/api/v1/alerts/{id}` | Delete an alert |
-
-### AI Agents
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/v1/agents/` | List all 4 AI agents and their status |
-| `POST` | `/api/v1/agents/{name}/analyze` | Run a specific agent against context |
-| `GET` | `/api/v1/agents/activity` | Agent activity summary |
-
-**Available agents:** `marketing`, `product`, `sales`, `strategy`
-
-### Graph & DNA
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/v1/graph/competitive/{company}` | Get full competitive relationship graph |
-| `GET` | `/api/v1/graph/nodes` | List all graph nodes |
-| `GET` | `/api/v1/graph/relationships` | List all graph relationships |
-| `GET` | `/api/v1/graph/dna/{company}` | Get competitive DNA profile |
-
----
-
-## AI Agents
-
-Four specialised AI agents analyse competitor intelligence:
-
-| Agent | Focus | Outputs |
-|---|---|---|
-| **MarketingAI** | Ad spend, campaigns, positioning, brand sentiment | Threat level, marketing moves, recommended response |
-| **ProductAI** | Product launches, features, hiring patterns, roadmaps | Product changes, launch timeline, recommended response |
-| **SalesAI** | Pricing, discounts, expansion cities, sales hiring | Pricing changes, expansion cities, recommended response |
-| **StrategyAI** | Synthesises all signals into strategic assessment | Threat level, momentum score, prediction, strategic actions, time horizon |
-
-Each agent runs against the same competitor context and produces structured JSON, which the **War Room** orchestrator combines into a consolidated strategic report.
-
----
-
-## Mock Data
-
-In `DATABASE_MODE=mock`, the server automatically seeds realistic demo data on startup:
-
-- **1 user** — Acme Corp
-- **3 competitors** — Blinkit, Zepto, Swiggy
-- **6 signals** — hiring spikes, ad spend changes, funding rounds, executive hires
-- **3 predictions** — AI-generated market predictions
-- **2 War Room reports** — strategic assessments
-- **3 alerts** — threshold-based monitoring configs
-- **5 competitive DNA patterns** — stored in vector memory
-- **21 graph nodes + 9 relationships** — connecting companies, cities, executives, investors, products, and campaigns
-
----
-
-## Competitive DNA Memory
-
-The Pinecone vector store maintains a living **Competitive DNA** profile for each competitor. Known behaviour patterns:
-
-```
-Blinkit:  "Hiring spike → market launch"           (confidence: 85%)
-Swiggy:   "Ad spend increase → product rollout"    (confidence: 78%)
-Zepto:    "Discount campaign → customer acquisition" (confidence: 72%)
-Zomato:   "Executive hire → strategic shift"        (confidence: 65%)
-Zepto:    "Funding round → aggressive expansion"    (confidence: 80%)
-```
-
-When new signals arrive, the system queries the vector store for matching historical patterns and returns confidence-scored predictions.
-
----
-
-## Relationship Graph
-
-The Neo4j graph store models competitive relationships:
-
-**Node types:** `Company`, `Competitor`, `Market`, `City`, `Executive`, `Investor`, `FundingRound`, `Product`, `Campaign`
-
-**Relationship types:** `COMPETES_WITH`, `OPERATES_IN`, `HIRED`, `FUNDED`, `LAUNCHED`, `RUNNING`
-
-Example: `Company:Blinkit` → `COMPETES_WITH` → `Company:Zepto`  
-Example: `Company:Blinkit` → `OPERATES_IN` → `City:Pune`  
-Example: `Investor:SoftBank` → `FUNDED` → `Company:Blinkit`
-
----
-
-## Testing
-
-```bash
-# Run all tests
-uv run pytest -v
-
-# Run with coverage
-uv run pytest --cov=app --cov-report=term-missing
-```
-
-**46 tests** across 4 test files covering:
-- Pydantic schema validation
-- AI provider HTTP error handling
-- Competitor analysis prompt building & JSON parsing
-- Full API endpoint integration tests
-
----
-
-## Project Structure
-
-```
-Backend/
-├── main.py                      # FastAPI app entry point + lifespan + seed data
-├── pyproject.toml               # Dependencies and project metadata
-├── .env.example                 # Environment variable template
-├── app/
-│   ├── core/
-│   │   ├── config.py            # Environment config + validation
-│   │   └── ai_provider.py       # AI provider factory
-│   ├── providers/
-│   │   ├── base.py              # Abstract AIProvider + AIProviderError
-│   │   ├── groq_provider.py     # Groq API implementation
-│   │   ├── openrouter_provider.py  # OpenRouter API implementation
-│   │   └── anthropic_provider.py   # Anthropic/Claude API implementation
-│   ├── models/
-│   │   ├── base.py              # SQLAlchemy declarative base + mixins
-│   │   ├── user.py              # User model
-│   │   ├── competitor.py        # Competitor model
-│   │   ├── signal.py            # Signal model
-│   │   ├── prediction.py        # Prediction model
-│   │   ├── warroom.py           # WarRoomReport model
-│   │   └── alert.py             # Alert model
-│   ├── schemas/
-│   │   ├── requests.py          # Request schemas
-│   │   ├── responses.py         # Response schemas
-│   │   ├── user.py              # User schemas
-│   │   ├── competitor.py        # Competitor schemas
-│   │   ├── signal.py            # Signal schemas
-│   │   ├── prediction.py        # Prediction schemas
-│   │   ├── warroom.py           # WarRoom schemas
-│   │   └── alert.py             # Alert schemas
-│   ├── services/
-│   │   ├── database.py          # SQLAlchemy async engine + session
-│   │   ├── pinecone.py          # Pinecone vector store (mock/real)
-│   │   ├── neo4j.py             # Neo4j graph store (mock/real)
-│   │   ├── patterns.py          # Competitive DNA pattern matching
-│   │   ├── warroom.py           # War Room report generation
-│   │   └── competitor_analysis.py # Competitor analysis service
-│   ├── agents/
-│   │   ├── base.py              # Abstract BaseAgent
-│   │   ├── marketing.py         # MarketingAI agent
-│   │   ├── product.py           # ProductAI agent
-│   │   ├── sales.py             # SalesAI agent
-│   │   └── strategy.py          # StrategyAI agent
-│   ├── routers/
-│   │   ├── analysis.py          # POST /api/v1/analyze
-│   │   ├── users.py             # User CRUD
-│   │   ├── competitors.py       # Competitor CRUD + momentum
-│   │   ├── signals.py           # Signal CRUD
-│   │   ├── predictions.py       # Prediction CRUD
-│   │   ├── warroom.py           # War Room endpoints
-│   │   ├── alerts.py            # Alert CRUD
-│   │   ├── agents.py            # AI agent execution
-│   │   └── graph.py             # Graph + DNA endpoints
-│   └── ...
-├── tests/
-│   ├── conftest.py              # Shared test fixtures
-│   ├── test_schemas.py          # Schema validation tests
-│   ├── test_competitor_analysis.py # Service layer tests
-│   ├── test_providers.py        # Provider error handling tests
-│   └── test_routes.py           # API integration tests
-└── ...
-```
+| `SUPABASE_URL` | Yes | Your Supabase project URL |
+| `SUPABASE_KEY` | Yes | Anon or service role key |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key |
+| `SERPAPI_KEY` | No | SerpAPI key (signals gracefully empty without it) |
+| `CHROMADB_PATH` | No | Local ChromaDB directory (default: `./chromadb_data`) |
+| `ANTHROPIC_MODEL` | No | Default: `claude-sonnet-4-6` |
