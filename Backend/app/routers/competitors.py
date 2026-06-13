@@ -10,7 +10,6 @@ from sqlalchemy import select
 
 from app.models.competitor import Competitor
 from app.models.signal import Signal, SignalCategory
-from app.models.prediction import Prediction
 from app.schemas.competitor import (
     CompetitorCreate,
     CompetitorResponse,

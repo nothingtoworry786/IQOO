@@ -54,7 +54,6 @@ async def run_agent(agent_name: str, context: str) -> dict:
     """
     agent = _agents.get(agent_name.lower())
     if not agent:
-        from fastapi import HTTPException
         raise HTTPException(
             status_code=404,
             detail=f"Unknown agent '{agent_name}'. Available: {', '.join(_agents.keys())}",
