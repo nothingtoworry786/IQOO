@@ -123,6 +123,10 @@ async def _product(name: str) -> list[dict]:
     return signals
 
 
+# Public alias so other modules don't need to import a private function
+serp_search = _serp_search
+
+
 async def hunt_signals(
     competitor_name: str = "",
     website: str | None = None,

@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/onboarding", tags=["Onboarding v2"])
 
+# Keeps strong references to running background tasks so they aren't garbage-collected.
+_bg_tasks: set[asyncio.Task] = set()
+
 
 class DiscoverRequest(BaseModel):
     user_id: str = Field(..., min_length=1, max_length=128)
@@ -54,7 +57,9 @@ async def start_discovery(data: DiscoverRequest) -> DiscoverResponse:
     if not job_id:
         raise HTTPException(status_code=500, detail="Failed to create discovery job.")
 
-    asyncio.create_task(
+    # Keep a strong reference to prevent GC before the task finishes.
+    # The callback removes the reference on completion and logs any crash.
+    task = asyncio.create_task(
         run_discovery_pipeline(
             job_id=job_id,
             user_id=data.user_id,
@@ -62,6 +67,13 @@ async def start_discovery(data: DiscoverRequest) -> DiscoverResponse:
             website=data.website,
             description=data.description,
         )
+    )
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
+    task.add_done_callback(
+        lambda t: logger.error("Discovery pipeline unhandled crash: %s", t.exception())
+        if not t.cancelled() and t.exception()
+        else None
     )
 
     logger.info("Discovery job %s started for user=%s (%s)", job_id, data.user_id, data.company_name)

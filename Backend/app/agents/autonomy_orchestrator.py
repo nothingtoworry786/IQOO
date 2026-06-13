@@ -155,15 +155,35 @@ async def run_competitor_cycle(
     comp_name = competitor["name"]
     industry = competitor.get("industry", "Technology")
 
-    # ── STEP 1: Hunt new signals ──────────────────────────────────────────────
+    # ── STEP 1: Hunt new signals and persist to SQLite ────────────────────────
     try:
-        await hunt_signals(
-            user_id=user_id,
-            competitor_id=comp_id,
+        new_sigs = await hunt_signals(
             competitor_name=comp_name,
             industry=industry,
             days_simulated=days_simulated,
         )
+        if new_sigs:
+            from app.models.signal import Signal as _Signal, SignalCategory as _SC
+            async with async_session_factory() as session:
+                for s in new_sigs:
+                    raw_type = s.get("type", "Hiring")
+                    try:
+                        sig_type = _SC(raw_type)
+                    except ValueError:
+                        sig_type = _SC.HIRING
+                    intent = float(s.get("intent_score", 50))
+                    impact = round(min(10.0, intent / 10.0), 1)
+                    session.add(_Signal(
+                        competitor_id=comp_id,
+                        signal_type=sig_type,
+                        title=s.get("title", "")[:512],
+                        description=s.get("description", ""),
+                        source=s.get("source", ""),
+                        impact_score=impact,
+                        urgency_score=round(impact * 0.85, 1),
+                    ))
+                await session.commit()
+            logger.info("Step 1: saved %d signals for '%s'", len(new_sigs), comp_name)
     except Exception as exc:
         logger.error("Step 1 (hunt) failed for '%s': %s", comp_name, exc)
 

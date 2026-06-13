@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -26,7 +26,7 @@ def setup_scheduler() -> None:
         hours=4,
         id="autonomy_cycle",
         replace_existing=True,
-        next_run_time=datetime.now(),   # immediate first run
+        next_run_time=datetime.now(timezone.utc),   # immediate first run
         misfire_grace_time=120,
         kwargs={"user_id": "system"},
     )

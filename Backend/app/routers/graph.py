@@ -80,23 +80,30 @@ async def list_graph_nodes() -> list[dict]:
 @router.get("/relationships", response_model=list[dict])
 async def list_graph_relationships() -> list[dict]:
     async with get_db() as db:
-        result = await db.execute(
+        rels_result = await db.execute(
             select(CompetitorRelationship).order_by(CompetitorRelationship.relationship_type)
         )
-        rels = result.scalars().all()
-        output = []
-        for r in rels:
-            src = await db.execute(select(Competitor).where(Competitor.id == r.source_competitor_id))
-            tgt = await db.execute(select(Competitor).where(Competitor.id == r.target_competitor_id))
-            src_name = src.scalar_one_or_none()
-            tgt_name = tgt.scalar_one_or_none()
-            output.append({
-                "source": src_name.name if src_name else r.source_competitor_id,
-                "target": tgt_name.name if tgt_name else r.target_competitor_id,
+        rels = rels_result.scalars().all()
+
+        if not rels:
+            return []
+
+        # Single query to fetch all referenced competitors — avoids N+1 round trips
+        all_ids = {r.source_competitor_id for r in rels} | {r.target_competitor_id for r in rels}
+        comp_result = await db.execute(
+            select(Competitor).where(Competitor.id.in_(all_ids))
+        )
+        id_to_name: dict[str, str] = {c.id: c.name for c in comp_result.scalars().all()}
+
+        return [
+            {
+                "source": id_to_name.get(r.source_competitor_id, r.source_competitor_id),
+                "target": id_to_name.get(r.target_competitor_id, r.target_competitor_id),
                 "type": r.relationship_type,
                 "intensity": r.intensity,
-            })
-        return output
+            }
+            for r in rels
+        ]
 
 
 @router.get("/dna/{competitor_name}", response_model=dict)

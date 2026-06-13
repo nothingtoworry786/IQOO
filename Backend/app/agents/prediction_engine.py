@@ -96,7 +96,7 @@ If should_predict is false, set prediction to "" but keep all other fields."""
             pred = Prediction(
                 id=str(uuid.uuid4()),
                 competitor_id=competitor_id,
-                prediction=data["prediction"],
+                prediction=data.get("prediction", ""),
                 confidence=confidence,
                 threat_level=threat_level,
                 ai_reasoning=data.get("ai_reasoning", ""),
@@ -109,7 +109,7 @@ If should_predict is false, set prediction to "" but keep all other fields."""
                 user_id=user_id,
                 competitor_id=competitor_id,
                 agent_name="PredictionEngine",
-                action=f"Prediction filed for {competitor_name} — {data['prediction'][:120]}... "
+                action=f"Prediction filed for {competitor_name} — {data.get('prediction', '')[:120]}... "
                        f"(confidence: {confidence}%{', WAR ROOM TRIGGERED' if is_trigger else ''})",
                 reasoning=data.get("ai_reasoning", ""),
             ))
@@ -122,7 +122,7 @@ If should_predict is false, set prediction to "" but keep all other fields."""
         )
         return {
             "id": pred_id,
-            "prediction": data["prediction"],
+            "prediction": data.get("prediction", ""),
             "confidence": confidence,
             "threat_level": threat_level,
             "is_war_room_trigger": is_trigger,

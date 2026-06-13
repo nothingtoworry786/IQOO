@@ -40,7 +40,6 @@ from app.routes.competitors import router as v2_competitors_router
 from app.routes.signals import router as v2_signals_router
 from app.routes.dna import router as v2_dna_router
 from app.services.database import init_db, close_db
-from app.services.competitive_dna import seed_dna_patterns
 from app.workers.background_jobs import setup_scheduler, stop_scheduler
 
 logging.basicConfig(
@@ -69,7 +68,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False,
                    allow_methods=["*"], allow_headers=["*"])
 
 app.include_router(analysis_router)

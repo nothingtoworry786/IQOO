@@ -37,7 +37,7 @@ from app.services.claude import (
     validate_competitor,
 )
 from app.services.scraper import scrape_and_analyze
-from app.agents.signal_hunter import _serp_search, hunt_signals
+from app.agents.signal_hunter import serp_search, hunt_signals
 from app.agents.dna_forge import forge_dna_profile
 
 logger = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ async def run_discovery_pipeline(
         ]
 
         serp_batches = await asyncio.gather(
-            *[_serp_search(q, num=5) for q in search_queries],
+            *[serp_search(q, num=5) for q in search_queries],
             return_exceptions=True,
         )
 
@@ -189,7 +189,7 @@ async def run_discovery_pipeline(
             color_idx += 1
             try:
                 # Try to resolve website via SerpAPI
-                website_results = await _serp_search(f"{name} official website", num=1)
+                website_results = await serp_search(f"{name} official website", num=1)
                 guessed_site = (
                     website_results[0].get("link", "") if website_results else ""
                 )

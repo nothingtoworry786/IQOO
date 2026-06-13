@@ -331,7 +331,8 @@ Respond with ONLY a single integer between 0 and 100. No other text."""
 
     try:
         raw = await _call(prompt, max_tokens=10)
-        score = int(re.search(r"\d+", raw).group())
+        match = re.search(r"\d+", raw)
+        score = int(match.group()) if match else 50
         return max(0, min(100, score))
     except Exception:
         return 50

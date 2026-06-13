@@ -98,14 +98,36 @@ async def simulate_time_passage(data: SimulateRequest) -> SimulateResponse:
     for day in range(1, data.days + 1):
         try:
             new_sigs = await hunt_signals(
-                user_id=user_id,
-                competitor_id=data.competitor_id,
                 competitor_name=comp_name,
                 industry=industry,
                 context_hint=f"Day {day} of monitoring. Focus on signals that would emerge {day} days into tracking.",
                 days_simulated=day,
             )
             total_signals += len(new_sigs)
+
+            # Persist signals to SQLite so DNA / prediction logic can read them
+            if new_sigs:
+                from app.models.signal import Signal as _Signal, SignalCategory as _SC
+                from app.services.database import async_session_factory as _asf
+                async with _asf() as _session:
+                    for s in new_sigs:
+                        raw_type = s.get("type", "Hiring")
+                        try:
+                            sig_type = _SC(raw_type)
+                        except ValueError:
+                            sig_type = _SC.HIRING
+                        intent = float(s.get("intent_score", 50))
+                        impact = round(min(10.0, intent / 10.0), 1)
+                        _session.add(_Signal(
+                            competitor_id=data.competitor_id,
+                            signal_type=sig_type,
+                            title=s.get("title", "")[:512],
+                            description=s.get("description", ""),
+                            source=s.get("source", ""),
+                            impact_score=impact,
+                            urgency_score=round(impact * 0.85, 1),
+                        ))
+                    await _session.commit()
 
             # Update DNA every 5 days or when we cross the 10-signal threshold
             total = await _signal_count(data.competitor_id)
@@ -154,12 +176,11 @@ async def simulate_time_passage(data: SimulateRequest) -> SimulateResponse:
         logger.warning("Post-simulation prediction failed: %s", exc)
 
     # Count new activity log entries
-    from app.models.agent_log import AgentLog as AL
     from sqlalchemy import func
     async with async_session_factory() as session:
         result = await session.execute(
-            select(func.count()).select_from(AL)
-            .where(AL.competitor_id == data.competitor_id)
+            select(func.count()).select_from(AgentLog)
+            .where(AgentLog.competitor_id == data.competitor_id)
         )
         activity_count = result.scalar() or 0
 

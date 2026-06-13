@@ -37,11 +37,7 @@ class Settings:
         self.HOST = os.getenv("HOST", "0.0.0.0")
         self.PORT = int(os.getenv("PORT", "8000"))
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-        raw_url = (
-            os.getenv("DATABASE_URL")
-            or os.getenv("SUPERBASE_URL")
-            or "sqlite+aiosqlite:///./marketwatch.db"
-        )
+        raw_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./marketwatch.db")
         # Auto-convert postgresql:// → postgresql+asyncpg:// for SQLAlchemy async
         if raw_url.startswith("postgresql://") and "+asyncpg" not in raw_url:
             raw_url = raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
@@ -60,15 +56,15 @@ class Settings:
         self.CHROMADB_PATH: str = os.getenv("CHROMADB_PATH", "./chromadb_data")
         if "postgresql" in self.DATABASE_URL:
             logger.info("Using PostgreSQL database (%s...)", self.DATABASE_URL.split("@")[-1] if "@" in self.DATABASE_URL else self.DATABASE_URL[:30])
-        self._validate()
 
-        # Allow AI_PROVIDER to be 'none' if no key is provided
+        # Fallback to 'none' BEFORE validate so missing keys don't hard-crash startup
         if self.AI_PROVIDER == "groq" and not self.GROQ_API_KEY:
             self.AI_PROVIDER = "none"
         if self.AI_PROVIDER == "openrouter" and not self.OPENROUTER_API_KEY:
             self.AI_PROVIDER = "none"
         if self.AI_PROVIDER == "anthropic" and not self.ANTHROPIC_API_KEY:
             self.AI_PROVIDER = "none"
+        self._validate()
 
     def _validate(self) -> None:
         if self.AI_PROVIDER not in {"groq", "openrouter", "anthropic", "none"}:

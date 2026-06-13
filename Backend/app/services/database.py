@@ -46,17 +46,19 @@ async def init_db() -> None:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             logger.info("pgvector extension enabled")
         await conn.run_sync(Base.metadata.create_all)
-        # Migrate: add new columns to existing tables (SQLite ALTER TABLE is limited)
-        _new_cols = [
-            ("competitors", "is_active", "BOOLEAN DEFAULT 1"),
-            ("predictions", "is_war_room_trigger", "BOOLEAN DEFAULT 0"),
-        ]
-        for table, col, definition in _new_cols:
-            try:
-                await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {definition}"))
-                logger.info("Migration: added %s.%s", table, col)
-            except Exception:
-                pass  # column already exists
+        # Migrate: add new columns to existing SQLite tables only (PostgreSQL uses
+        # proper migrations; this lightweight ALTER TABLE doesn't support IF NOT EXISTS)
+        if not _is_postgres:
+            _new_cols = [
+                ("competitors", "is_active", "BOOLEAN DEFAULT 1"),
+                ("predictions", "is_war_room_trigger", "BOOLEAN DEFAULT 0"),
+            ]
+            for table, col, definition in _new_cols:
+                try:
+                    await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {definition}"))
+                    logger.info("Migration: added %s.%s", table, col)
+                except Exception:
+                    pass  # column already exists — expected on second run
     logger.info("Database tables initialised")
 
 
