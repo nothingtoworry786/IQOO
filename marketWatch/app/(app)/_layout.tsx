@@ -1,16 +1,9 @@
 import { Tabs } from "expo-router";
-import { View } from "react-native";
-import {
-  LayoutDashboard,
-  RadioTower,
-  BrainCircuit,
-  Swords,
-  UserCircle,
-} from "lucide-react-native";
+import { LayoutDashboard, Users, MessageCircle } from "lucide-react-native";
 
 /**
- * Main authenticated app layout using file-based tab navigation.
- * Each tab is styled with the deep slate dark theme and neon accent highlights.
+ * Main app tab layout — 3 tabs: Home, Competitors, Chatbot.
+ * Dark theme with neon cyan accent.
  */
 export default function AppLayout() {
   return (
@@ -37,45 +30,27 @@ export default function AppLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Dashboard",
+          title: "Home",
           tabBarIcon: ({ color, size }) => (
             <LayoutDashboard color={color} size={size} />
           ),
         }}
       />
       <Tabs.Screen
-        name="signals"
+        name="competitors"
         options={{
-          title: "Signals",
+          title: "Competitors",
           tabBarIcon: ({ color, size }) => (
-            <RadioTower color={color} size={size} />
+            <Users color={color} size={size} />
           ),
         }}
       />
       <Tabs.Screen
-        name="predictions"
+        name="chatbot"
         options={{
-          title: "Predictions",
+          title: "Chatbot",
           tabBarIcon: ({ color, size }) => (
-            <BrainCircuit color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="warroom"
-        options={{
-          title: "War Room",
-          tabBarIcon: ({ color, size }) => (
-            <Swords color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <UserCircle color={color} size={size} />
+            <MessageCircle color={color} size={size} />
           ),
         }}
       />

@@ -4,11 +4,13 @@ import { StatusBar } from "expo-status-bar";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { PersonaProvider } from "../store/personaStore";
 
 /**
  * Root layout component that wraps the entire application with:
  * - SafeAreaProvider for safe area insets
  * - GestureHandlerRootView for gesture-based interactions
+ * - PersonaProvider — global persona/lens context (Founder | Marketing)
  * - Dark mode color scheme
  * - Splash screen / initial loading state
  * - Status bar configuration
@@ -29,9 +31,7 @@ export default function RootLayout() {
           <StatusBar style="light" />
           <View style={styles.splashContainer}>
             <ActivityIndicator size="large" color="#22D3EE" />
-            <Text style={styles.splashText}>
-              INITIALISING WAR ROOM…
-            </Text>
+            <Text style={styles.splashText}>INITIALISING WAR ROOM…</Text>
           </View>
         </GestureHandlerRootView>
       </SafeAreaProvider>
@@ -41,18 +41,21 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={styles.root}>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: "slide_from_right",
-            contentStyle: { backgroundColor: "#0F172A" },
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(app)" />
-        </Stack>
+        <PersonaProvider>
+          <StatusBar style="light" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#0F172A" },
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(onboarding)" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(app)" />
+          </Stack>
+        </PersonaProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );
