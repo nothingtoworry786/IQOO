@@ -27,6 +27,7 @@ from app.routers.predictions import router as predictions_router
 from app.routers.warroom import router as warroom_router
 from app.routers.alerts import router as alerts_router
 from app.routers.agents import router as agents_router
+from app.routers.dna import router as dna_router
 from app.routers.graph import router as graph_router
 from app.schemas.responses import HealthResponse
 from app.services.database import init_db, close_db
@@ -66,6 +67,7 @@ app.include_router(predictions_router)
 app.include_router(warroom_router)
 app.include_router(alerts_router)
 app.include_router(agents_router)
+app.include_router(dna_router)
 app.include_router(graph_router)
 
 
@@ -145,46 +147,60 @@ async def seed_mock_data() -> None:
             await session.flush()
 
             # ── Batch 4: Signal, Prediction, WarRoomReport (FKs to competitors) ──
+            from app.models.signal import SignalCategory as SC
             session.add_all([
-                Signal(competitor_id="comp-blinkit", signal_type="hiring_spike", source="LinkedIn Jobs",
+                Signal(competitor_id="comp-blinkit", signal_type=SC.HIRING, source="LinkedIn Jobs",
                        impact_score=8.5, urgency_score=7.0,
-                       value="Blinkit posted 23 new jobs in Pune across delivery, ops, and tech roles"),
-                Signal(competitor_id="comp-blinkit", signal_type="ad_spend_increase", source="SensorTower",
+                       title="Blinkit hiring surge in Pune",
+                       description="Blinkit posted 23 new jobs in Pune across delivery, ops, and tech roles. Includes 10 delivery managers, 8 operations leads, and 5 software engineers."),
+                Signal(competitor_id="comp-blinkit", signal_type=SC.MARKETING, source="SensorTower",
                        impact_score=7.2, urgency_score=6.5,
-                       value="Blinkit ad spend increased 40% month-over-month in Pune market"),
-                Signal(competitor_id="comp-blinkit", signal_type="city_expansion", source="Press Release",
+                       title="Blinkit ad spend up 40% MoM in Pune",
+                       description="Blinkit ad spend increased 40% month-over-month in Pune market. Focus on social media and local search ads."),
+                Signal(competitor_id="comp-blinkit", signal_type=SC.EXPANSION, source="Press Release",
                        impact_score=9.0, urgency_score=8.5,
-                       value="Blinkit announced expansion to 5 new cities: Jaipur, Lucknow, Chandigarh, Bhopal, Indore"),
-                Signal(competitor_id="comp-zepto", signal_type="discount_campaign", source="App Annie",
+                       title="Blinkit expanding to 5 new cities",
+                       description="Blinkit announced expansion to 5 new cities: Jaipur, Lucknow, Chandigarh, Bhopal, Indore. Setup in progress with hiring already started."),
+                Signal(competitor_id="comp-zepto", signal_type=SC.MARKETING, source="App Annie",
                        impact_score=6.8, urgency_score=5.5,
-                       value="Zepto launched student discount campaign in Mumbai with 20% off first 5 orders"),
-                Signal(competitor_id="comp-zepto", signal_type="funding_round", source="TechCrunch",
+                       title="Zepto launches student discount campaign in Mumbai",
+                       description="Zepto launched student discount campaign in Mumbai with 20% off first 5 orders targeting college students."),
+                Signal(competitor_id="comp-zepto", signal_type=SC.FUNDING, source="TechCrunch",
                        impact_score=9.0, urgency_score=8.0,
-                       value="Zepto raised $340M in Series E funding led by Nexus Venture Partners"),
-                Signal(competitor_id="comp-zepto", signal_type="product_launch", source="Twitter/X",
+                       title="Zepto raises $340M in Series E funding",
+                       description="Zepto raised $340M in Series E funding led by Nexus Venture Partners at a $3.5B valuation. Funds earmarked for expansion."),
+                Signal(competitor_id="comp-zepto", signal_type=SC.PRODUCT, source="Twitter/X",
                        impact_score=7.8, urgency_score=6.2,
-                       value="Zepto launched Zepto Pass subscription with free delivery and discounts at INR 99/month"),
-                Signal(competitor_id="comp-zepto", signal_type="hiring_spike", source="LinkedIn Jobs",
+                       title="Zepto launches Zepto Pass subscription",
+                       description="Zepto launched Zepto Pass subscription with free delivery and discounts at INR 99/month. Aimed at increasing customer retention."),
+                Signal(competitor_id="comp-zepto", signal_type=SC.HIRING, source="LinkedIn Jobs",
                        impact_score=7.0, urgency_score=6.0,
-                       value="Zepto posted 45 new job openings across tech, product, and operations teams"),
-                Signal(competitor_id="comp-swiggy", signal_type="executive_hire", source="LinkedIn",
+                       title="Zepto opens 45 new positions across teams",
+                       description="Zepto posted 45 new job openings across tech, product, and operations teams. Major push in engineering and product management."),
+                Signal(competitor_id="comp-swiggy", signal_type=SC.LEADERSHIP, source="LinkedIn",
                        impact_score=7.5, urgency_score=6.0,
-                       value="Swiggy hired new VP of Engineering from Amazon to lead Instamart platform team"),
-                Signal(competitor_id="comp-swiggy", signal_type="ad_spend_increase", source="SensorTower",
+                       title="Swiggy hires VP of Engineering from Amazon",
+                       description="Swiggy hired new VP of Engineering from Amazon to lead Instamart platform team. Signals focus on scaling tech platform."),
+                Signal(competitor_id="comp-swiggy", signal_type=SC.MARKETING, source="SensorTower",
                        impact_score=6.5, urgency_score=5.8,
-                       value="Swiggy Instamart ad spend increased 25% in Bangalore market"),
-                Signal(competitor_id="comp-swiggy", signal_type="pricing_change", source="App Analysis",
+                       title="Swiggy Instamart ad spend surges in Bangalore",
+                       description="Swiggy Instamart ad spend increased 25% in Bangalore market. Focus on digital and OOH advertising."),
+                Signal(competitor_id="comp-swiggy", signal_type=SC.MARKETING, source="App Analysis",
                        impact_score=6.0, urgency_score=4.5,
-                       value="Swiggy reduced delivery fees in tier-2 cities to compete with Zepto and Blinkit"),
-                Signal(competitor_id="comp-zomato", signal_type="product_launch", source="TechCrunch",
+                       title="Swiggy reduces delivery fees in tier-2 cities",
+                       description="Swiggy reduced delivery fees in tier-2 cities to compete with Zepto and Blinkit. Pricing pressure in smaller markets."),
+                Signal(competitor_id="comp-zomato", signal_type=SC.PRODUCT, source="TechCrunch",
                        impact_score=8.0, urgency_score=7.5,
-                       value="Zomato launched Zomato Foodie Membership at INR 199/year with unlimited free delivery"),
-                Signal(competitor_id="comp-flipkart", signal_type="product_launch", source="Press Release",
+                       title="Zomato launches loyalty membership at INR 199/year",
+                       description="Zomato launched Zomato Foodie Membership at INR 199/year with unlimited free delivery. Aggressive pricing to drive subscriber growth."),
+                Signal(competitor_id="comp-flipkart", signal_type=SC.PRODUCT, source="Press Release",
                        impact_score=8.0, urgency_score=7.5,
-                       value="Flipkart launched Flipkart Minutes quick-commerce service in 5 cities"),
-                Signal(competitor_id="comp-bigbasket", signal_type="discount_campaign", source="Email Marketing",
+                       title="Flipkart Minutes quick-commerce launches in 5 cities",
+                       description="Flipkart launched Flipkart Minutes quick-commerce service in 5 cities: Bangalore, Mumbai, Delhi, Hyderabad, Chennai. 10-minute delivery promise."),
+                Signal(competitor_id="comp-bigbasket", signal_type=SC.MARKETING, source="Email Marketing",
                        impact_score=6.5, urgency_score=5.0,
-                       value="BigBasket launched Monthly Saver subscription with 15% discount on all orders"),
+                       title="BigBasket Monthly Saver subscription launches",
+                       description="BigBasket launched Monthly Saver subscription with 15% discount on all orders. Loyalty play to retain existing customers."),
                 Prediction(competitor_id="comp-blinkit", confidence=78, threat_level="high",
                     prediction="Blinkit will expand to 5 new cities in Q3 2025 based on hiring and ad spend signals",
                     ai_reasoning="Hiring spike + ad spend increase = market launch within 60 days. Pattern matched at 85% confidence."),

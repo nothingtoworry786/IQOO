@@ -57,9 +57,17 @@ class Settings:
             logger.info("Using PostgreSQL database (%s...)", self.DATABASE_URL.split("@")[-1] if "@" in self.DATABASE_URL else self.DATABASE_URL[:30])
         self._validate()
 
+        # Allow AI_PROVIDER to be 'none' if no key is provided
+        if self.AI_PROVIDER == "groq" and not self.GROQ_API_KEY:
+            self.AI_PROVIDER = "none"
+        if self.AI_PROVIDER == "openrouter" and not self.OPENROUTER_API_KEY:
+            self.AI_PROVIDER = "none"
+        if self.AI_PROVIDER == "anthropic" and not self.ANTHROPIC_API_KEY:
+            self.AI_PROVIDER = "none"
+
     def _validate(self) -> None:
-        if self.AI_PROVIDER not in {"groq", "openrouter", "anthropic"}:
-            raise ValueError(f"Invalid AI_PROVIDER '{self.AI_PROVIDER}'. Must be 'groq', 'openrouter', or 'anthropic'.")
+        if self.AI_PROVIDER not in {"groq", "openrouter", "anthropic", "none"}:
+            raise ValueError(f"Invalid AI_PROVIDER '{self.AI_PROVIDER}'. Must be 'groq', 'openrouter', 'anthropic', or 'none'.")
         if self.AI_PROVIDER == "groq" and not self.GROQ_API_KEY:
             raise ValueError("GROQ_API_KEY is required when AI_PROVIDER is 'groq'.")
         if self.AI_PROVIDER == "openrouter" and not self.OPENROUTER_API_KEY:
