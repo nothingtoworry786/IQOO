@@ -4,7 +4,6 @@ import { StatusBar } from "expo-status-bar";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { PersonaProvider } from "../store/personaStore";
 import { AuthProvider } from "../contexts/AuthContext";
 import AnimatedSplashScreen from "../src/components/AnimatedSplashScreen";
 
@@ -12,7 +11,6 @@ import AnimatedSplashScreen from "../src/components/AnimatedSplashScreen";
  * Root layout — wraps the entire app with:
  *  - SafeAreaProvider and GestureHandlerRootView
  *  - AuthProvider (mounts immediately so token check runs during splash)
- *  - PersonaProvider for global Founder / Marketing lens state
  *  - AnimatedSplashScreen shown until onFinish fires (≈3.2 s)
  */
 export default function RootLayout() {
@@ -22,27 +20,25 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={styles.root}>
         <AuthProvider>
-          <PersonaProvider>
-            {!splashDone ? (
-              <AnimatedSplashScreen onFinish={() => setSplashDone(true)} />
-            ) : (
-              <>
-                <StatusBar style="light" />
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    animation: "slide_from_right",
-                    contentStyle: { backgroundColor: "#0F172A" },
-                  }}
-                >
-                  <Stack.Screen name="index" />
-                  <Stack.Screen name="(onboarding)" />
-                  <Stack.Screen name="(auth)" />
-                  <Stack.Screen name="(app)" />
-                </Stack>
-              </>
-            )}
-          </PersonaProvider>
+          {!splashDone ? (
+            <AnimatedSplashScreen onFinish={() => setSplashDone(true)} />
+          ) : (
+            <>
+              <StatusBar style="light" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  animation: "slide_from_right",
+                  contentStyle: { backgroundColor: "#0F172A" },
+                }}
+              >
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(onboarding)" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(app)" />
+              </Stack>
+            </>
+          )}
         </AuthProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>

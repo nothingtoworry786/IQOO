@@ -8,6 +8,7 @@ import {
   Pressable,
   RefreshControl,
   TextInput,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -34,6 +35,7 @@ import {
   type Signal,
   type Prediction,
 } from "../../services/apiClient";
+import { linkify, hostLabel } from "../../services/links";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Color Palette (MarketWatch: Cyan, Green, Amber)
@@ -717,9 +719,21 @@ function CompetitorDetail({
               <Text style={detail.profileIndustry}>{competitor.industry}</Text>
             </View>
           </View>
-          {competitor.website && (
-            <Text style={detail.profileWebsite}>{competitor.website}</Text>
-          )}
+          {competitor.website && (() => {
+            const url = linkify(competitor.website);
+            return url ? (
+              <Text
+                style={[detail.profileWebsite, detail.linkText]}
+                numberOfLines={1}
+                onPress={() => Linking.openURL(url)}
+                accessibilityRole="link"
+              >
+                {hostLabel(url)} ↗
+              </Text>
+            ) : (
+              <Text style={detail.profileWebsite}>{competitor.website}</Text>
+            );
+          })()}
         </View>
 
         {/* Stats Grid */}
@@ -799,7 +813,21 @@ function CompetitorDetail({
                     <View style={detail.timelineContent}>
                       <View style={detail.signalTopRow}>
                         <SignalBadge type={s.signal_type} size="md" />
-                        <Text style={detail.signalSource}>{s.source}</Text>
+                        {(() => {
+                          const url = linkify(s.source);
+                          return url ? (
+                            <Text
+                              style={[detail.signalSource, detail.linkText]}
+                              numberOfLines={1}
+                              onPress={() => Linking.openURL(url)}
+                              accessibilityRole="link"
+                            >
+                              {hostLabel(url)} ↗
+                            </Text>
+                          ) : (
+                            <Text style={detail.signalSource}>{s.source}</Text>
+                          );
+                        })()}
                       </View>
                       <Text style={detail.signalTitle}>{s.title}</Text>
                       {s.description && (
@@ -1039,6 +1067,12 @@ const detail = StyleSheet.create({
     fontSize: 10,
     color: "#64748B",
     fontStyle: "italic",
+  },
+  linkText: {
+    color: "#22D3EE",
+    fontStyle: "normal",
+    textDecorationLine: "underline",
+    maxWidth: 160,
   },
   signalTitle: {
     fontSize: 15,

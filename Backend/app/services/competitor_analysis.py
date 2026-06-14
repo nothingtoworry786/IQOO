@@ -17,7 +17,6 @@ import json
 import logging
 import re
 import uuid
-from datetime import datetime
 
 from app.core.ai_provider import get_ai_provider
 from app.schemas.requests import AnalyzeRequest
@@ -126,6 +125,80 @@ async def analyze_competitor(request: AnalyzeRequest) -> AnalyzeResponse:
     )
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Predictive-move synthesis (signal-driven, no AI call)
+# ---------------------------------------------------------------------------
+
+# Predicted strategic move keyed by the competitor's dominant signal type.
+_MOVE_BY_TYPE = {
+    "Funding": (
+        "just strengthened its balance sheet — expect aggressive pricing, "
+        "faster geographic expansion, and a hiring push within 30-60 days."
+    ),
+    "Hiring": (
+        "is staffing up fast — anticipate a new product launch or city rollout "
+        "within the next quarter."
+    ),
+    "Product": (
+        "is shipping features rapidly — expect a feature-parity push that will "
+        "pressure your roadmap; prepare a differentiation response."
+    ),
+    "Expansion": (
+        "is moving into new markets — expect them to enter your core geography "
+        "next, likely with localized pricing."
+    ),
+    "Marketing": (
+        "is ramping brand spend — expect higher customer-acquisition competition "
+        "and aggressive promotions aimed at your customers."
+    ),
+    "Leadership": (
+        "made key leadership changes — expect a strategic pivot or a new business "
+        "line within one to two quarters."
+    ),
+    "Sentiment": (
+        "is seeing shifting brand sentiment — a reputation window may be opening "
+        "that you can capture; monitor for churn."
+    ),
+}
+
+
+def _synthesize_prediction(comp_name: str, industry: str, signals: list) -> tuple[str, int, str, str]:
+    """Build a specific predictive move from the competitor's signal mix.
+
+    Returns (prediction_text, confidence, threat_level, reasoning).
+    """
+    from collections import Counter
+
+    type_counts = Counter(s.signal_type.value for s in signals)
+    top_type, top_type_n = type_counts.most_common(1)[0]
+    top = max(signals, key=lambda s: s.impact_score)
+
+    avg_impact = sum(s.impact_score for s in signals) / len(signals)
+    high_intent = sum(1 for s in signals if s.impact_score >= 7.0)
+
+    confidence = int(min(92, max(55, avg_impact * 9 + high_intent * 2)))
+
+    if avg_impact >= 7.5 or high_intent >= 3:
+        threat = "high"
+    elif avg_impact >= 5.0 or high_intent >= 1:
+        threat = "medium"
+    else:
+        threat = "low"
+
+    move = _MOVE_BY_TYPE.get(
+        top_type,
+        f"is showing active {top_type} signals suggesting strategic moves in {industry}.",
+    )
+    prediction = f"{comp_name} {move}"
+
+    reasoning = (
+        f"Dominant signal: {top_type} ({top_type_n} of {len(signals)} signals). "
+        f"Strongest signal: '{top.title}' (impact {top.impact_score:.1f}/10). "
+        f"{high_intent} high-intent signal(s) detected; avg impact {avg_impact:.1f}/10."
+    )
+    return prediction, confidence, threat, reasoning
 
 
 # ---------------------------------------------------------------------------
@@ -343,22 +416,18 @@ async def discover_company_and_competitors(
 
             top = signals[0]
             avg_impact = sum(s.impact_score for s in signals) / len(signals)
-            confidence = int(min(90, max(50, avg_impact * 9)))
-            threat = comp["threat_level"]
+
+            prediction_text, confidence, threat, reasoning = _synthesize_prediction(
+                comp["name"], industry, list(signals)
+            )
 
             prediction = Prediction(
                 id=str(uuid.uuid4()),
                 competitor_id=comp["id"],
-                prediction=(
-                    f"{comp['name']} is showing active {top.signal_type.value} signals "
-                    f"suggesting strategic market moves in {industry}."
-                ),
+                prediction=prediction_text,
                 confidence=confidence,
                 threat_level=threat,
-                ai_reasoning=(
-                    f"Based on {len(signals)} live signals. "
-                    f"Top signal: '{top.title}' (impact {top.impact_score:.1f}/10)."
-                ),
+                ai_reasoning=reasoning,
             )
             session.add(prediction)
 
@@ -392,6 +461,14 @@ async def discover_company_and_competitors(
             f"War Room initialised with {n} competitors "
             f"and {total_signals} live intelligence signals for {company_name}."
         )
+
+    # ── Step 9: Index company + competitors into the RAG knowledge base ───────
+    try:
+        from app.services import rag
+        await rag.index_company_context(company_name, profile)
+        await rag.sync_from_db(company_name)
+    except Exception as exc:
+        logger.warning("RAG indexing skipped: %s", exc)
 
     logger.info(
         "Discovery complete — %d competitors, %d signals",

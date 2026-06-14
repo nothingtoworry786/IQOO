@@ -15,7 +15,6 @@ import {
   UserCircle,
   Building2,
   Users,
-  Zap,
   Bell,
   BellOff,
   ChevronRight,
@@ -28,7 +27,6 @@ import {
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePersona, type Persona } from '../../store/personaStore';
 import { getItem, setItem } from '../../services/storage';
 import { api } from '../../services/apiClient';
 import OfflineBanner from '../../src/components/OfflineBanner';
@@ -108,7 +106,6 @@ function SettingsRow({
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { userId, userEmail, logout } = useAuth();
-  const { state: personaState, setPersona } = usePersona();
 
   const [companyName, setCompanyNameState] = useState('');
   const [competitorCount, setCompetitorCount] = useState(0);
@@ -285,41 +282,6 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(onboarding)/profile' as never)}
             showChevron
           />
-        </Card>
-
-        {/* ── INTELLIGENCE LENS ─────────────────────────────────────────── */}
-        <SectionHeader title="INTELLIGENCE LENS" />
-        <Card>
-          <View style={styles.personaToggle}>
-            {(['Founder', 'Marketing'] as Persona[]).map((p) => (
-              <Pressable
-                key={p}
-                style={[
-                  styles.personaOption,
-                  personaState.persona === p && styles.personaOptionActive,
-                ]}
-                onPress={() => setPersona(p)}
-              >
-                <Zap
-                  size={14}
-                  color={personaState.persona === p ? '#0F172A' : '#64748B'}
-                />
-                <Text
-                  style={[
-                    styles.personaOptionText,
-                    personaState.persona === p && styles.personaOptionTextActive,
-                  ]}
-                >
-                  {p}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          <Text style={styles.personaHint}>
-            {personaState.persona === 'Founder'
-              ? 'Prioritising funding, hiring, and expansion signals'
-              : 'Prioritising marketing, sentiment, and positioning signals'}
-          </Text>
         </Card>
 
         {/* ── NOTIFICATIONS ─────────────────────────────────────────────── */}
@@ -552,42 +514,6 @@ const styles = StyleSheet.create({
   roleValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  personaToggle: {
-    flexDirection: 'row',
-    margin: 14,
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    padding: 4,
-    gap: 4,
-  },
-  personaOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 9,
-    borderRadius: 8,
-    gap: 6,
-  },
-  personaOptionActive: {
-    backgroundColor: '#22D3EE',
-  },
-  personaOptionText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  personaOptionTextActive: {
-    color: '#0F172A',
-  },
-  personaHint: {
-    fontSize: 12,
-    color: '#475569',
-    textAlign: 'center',
-    paddingBottom: 14,
-    paddingHorizontal: 16,
-    lineHeight: 18,
   },
   logoutBtn: {
     flexDirection: 'row',

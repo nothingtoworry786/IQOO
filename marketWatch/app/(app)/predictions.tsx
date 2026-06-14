@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { BrainCircuit, AlertTriangle, TrendingUp } from "lucide-react-native";
 import { api, type Prediction } from "../../services/apiClient";
-import { usePersona } from "../../store/personaStore";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Threat level styling
@@ -183,8 +182,6 @@ export default function PredictionsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("confidence");
 
-  const { state: personaState } = usePersona();
-
   const fetchPredictions = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
@@ -205,7 +202,7 @@ export default function PredictionsScreen() {
     fetchPredictions();
   }, [fetchPredictions]);
 
-  // Sort predictions based on sort mode and persona
+  // Sort predictions based on sort mode
   const sortedPredictions = [...predictions].sort((a, b) => {
     if (sortMode === "confidence") return b.confidence - a.confidence;
     if (sortMode === "newest")
@@ -217,18 +214,7 @@ export default function PredictionsScreen() {
     return 0;
   });
 
-  // For Founder persona, boost high/critical threat predictions
-  const displayPredictions =
-    personaState.persona === "Founder"
-      ? [
-          ...sortedPredictions.filter((p) =>
-            ["high", "critical"].includes(p.threat_level)
-          ),
-          ...sortedPredictions.filter(
-            (p) => !["high", "critical"].includes(p.threat_level)
-          ),
-        ]
-      : sortedPredictions;
+  const displayPredictions = sortedPredictions;
 
   const highCount = predictions.filter((p) =>
     ["high", "critical"].includes(p.threat_level)
@@ -249,7 +235,7 @@ export default function PredictionsScreen() {
           <View>
             <Text style={screen.title}>Predictions</Text>
             <Text style={screen.subtitle}>
-              {personaState.persona} lens · {displayPredictions.length} forecasts
+              {displayPredictions.length} forecasts
             </Text>
           </View>
         </View>

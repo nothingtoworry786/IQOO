@@ -41,6 +41,7 @@ from app.routes.signals import router as v2_signals_router
 from app.routes.dna import router as v2_dna_router
 from app.services.database import init_db, close_db
 from app.workers.background_jobs import setup_scheduler, stop_scheduler
+from app.workers.discovery_queue import start_discovery_worker, stop_discovery_worker
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
@@ -54,6 +55,7 @@ async def lifespan(app: FastAPI):
     logger.info("MarketWatch starting (provider=%s)", settings.AI_PROVIDER)
     await init_db()
     setup_scheduler()          # start autonomous agent loop
+    start_discovery_worker()   # start background discovery retry queue
 
     # ── API connectivity status ───────────────────────────────────────────────
     if settings.SERPAPI_KEY:
@@ -68,6 +70,7 @@ async def lifespan(app: FastAPI):
 
     yield
     stop_scheduler()
+    await stop_discovery_worker()
     await close_db()
     logger.info("MarketWatch shut down")
 

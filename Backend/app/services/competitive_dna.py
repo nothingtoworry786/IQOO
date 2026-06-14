@@ -39,11 +39,6 @@ SIGNAL_TO_PATTERN_MAP: dict[str, list[str]] = {
 }
 
 
-async def seed_dna_patterns() -> None:
-    """No-op — DNA patterns are built from real signals, not seeded with hardcoded data."""
-    logger.debug("seed_dna_patterns: skipped (hardcoded data removed)")
-
-
 async def list_patterns(
     competitor_id: str | None = None,
     pattern_type: str | None = None,
@@ -144,34 +139,6 @@ async def find_similar_patterns(
                 "description": row.CompetitiveDNA.description,
                 "confidence_score": row.CompetitiveDNA.confidence_score,
                 "similarity_score": row.CompetitiveDNA.confidence_score,
-            }
-            for row in rows
-        ]
-
-
-async def find_similar_by_embedding(
-    query_embedding: str,
-    top_k: int = 5,
-) -> list[dict[str, Any]]:
-    """Find patterns by embedding similarity.
-
-    In production with PostgreSQL + pgvector, this would use:
-        ORDER BY embedding <=> :query_embedding
-    """
-    async with get_db() as db:
-        result = await db.execute(
-            select(CompetitiveDNA)
-            .order_by(CompetitiveDNA.confidence_score.desc())
-            .limit(top_k)
-        )
-        rows = result.scalars().all()
-        return [
-            {
-                "pattern_id": row.id,
-                "competitor_id": row.competitor_id,
-                "pattern_type": row.pattern_type,
-                "description": row.description,
-                "confidence_score": row.confidence_score,
             }
             for row in rows
         ]
@@ -343,8 +310,3 @@ def _generate_recommendations(
         recs.append("Set up alerts for signal volume changes to detect new patterns early.")
 
     return recs
-
-
-def _get_default_patterns() -> list[dict]:
-    """Returns empty list — DNA patterns are derived from real signal data only."""
-    return []

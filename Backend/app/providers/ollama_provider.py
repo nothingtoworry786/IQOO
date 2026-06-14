@@ -23,9 +23,9 @@ _BASE_BACKOFF = 2.0
 class OllamaProvider(AIProvider):
     """AI provider that uses a local Ollama instance."""
 
-    def __init__(self) -> None:
-        self.host = settings.OLLAMA_HOST.rstrip("/")
-        self.model = settings.OLLAMA_MODEL
+    def __init__(self, host: str | None = None, model: str | None = None) -> None:
+        self.host = (host or settings.OLLAMA_HOST).rstrip("/")
+        self.model = model or settings.OLLAMA_MODEL
         self.url = f"{self.host}/v1/chat/completions"
 
     async def generate(self, prompt: str, system: str | None = None) -> str:

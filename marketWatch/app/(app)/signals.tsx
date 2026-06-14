@@ -8,10 +8,11 @@ import {
   ActivityIndicator,
   TextInput,
   RefreshControl,
+  Linking,
 } from "react-native";
 import { RadioTower, Search, AlertTriangle, TrendingUp, Filter } from "lucide-react-native";
 import { api, type Signal, type SignalCategory } from "../../services/apiClient";
-import { usePersona } from "../../store/personaStore";
+import { linkify, hostLabel } from "../../services/links";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Type badge colours matching the backend SignalCategory enum
@@ -33,30 +34,14 @@ const IMPACT_BAR_COLORS = ["#4ADE80", "#4ADE80", "#FBBF24", "#FBBF24", "#FB923C"
 // Signal Card Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface SignalWithHighlight extends Signal {
-  highlighted: boolean;
-}
-
-function SignalCard({ signal }: { signal: SignalWithHighlight }) {
+function SignalCard({ signal }: { signal: Signal }) {
   const colors = CATEGORY_COLORS[signal.signal_type] ?? CATEGORY_COLORS.Product;
   const impactBarColor = IMPACT_BAR_COLORS[Math.floor(signal.impact_score)] ?? "#4ADE80";
   const impactPercent = (signal.impact_score / 10) * 100;
   const urgencyPercent = (signal.urgency_score / 10) * 100;
 
   return (
-    <View
-      style={[
-        card.container,
-        signal.highlighted && card.containerHighlighted,
-      ]}
-    >
-      {/* Highlighted persona lens indicator */}
-      {signal.highlighted && (
-        <View style={card.highlightBanner}>
-          <Text style={card.highlightText}>✦ PERSONA MATCH</Text>
-        </View>
-      )}
-
+    <View style={card.container}>
       {/* Header row */}
       <View style={card.headerRow}>
         <View style={[card.badge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
@@ -64,7 +49,21 @@ function SignalCard({ signal }: { signal: SignalWithHighlight }) {
             {signal.signal_type.toUpperCase()}
           </Text>
         </View>
-        <Text style={card.source}>{signal.source}</Text>
+        {(() => {
+          const url = linkify(signal.source);
+          return url ? (
+            <Text
+              style={[card.source, card.sourceLink]}
+              numberOfLines={1}
+              onPress={() => Linking.openURL(url)}
+              accessibilityRole="link"
+            >
+              {hostLabel(url)} ↗
+            </Text>
+          ) : (
+            <Text style={card.source}>{signal.source}</Text>
+          );
+        })()}
       </View>
 
       {/* Title */}
@@ -126,25 +125,6 @@ const card = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
   },
-  containerHighlighted: {
-    borderColor: "#22D3EE",
-    borderWidth: 1.5,
-    backgroundColor: "#0F2942",
-  },
-  highlightBanner: {
-    backgroundColor: "#164E63",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    alignSelf: "flex-start",
-    marginBottom: 10,
-  },
-  highlightText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#22D3EE",
-    letterSpacing: 1.2,
-  },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -166,6 +146,12 @@ const card = StyleSheet.create({
     fontSize: 12,
     color: "#475569",
     fontStyle: "italic",
+  },
+  sourceLink: {
+    color: "#22D3EE",
+    fontStyle: "normal",
+    textDecorationLine: "underline",
+    maxWidth: 180,
   },
   title: {
     fontSize: 15,
@@ -236,8 +222,6 @@ export default function SignalsScreen() {
   const [activeFilter, setActiveFilter] = useState<SignalCategory | "all">("all");
   const [sortBy, setSortBy] = useState<"newest" | "impact" | "urgency">("impact");
 
-  const { filterSignals, state: personaState } = usePersona();
-
   const fetchSignals = useCallback(
     async (isRefresh = false) => {
       if (isRefresh) setRefreshing(true);
@@ -267,13 +251,8 @@ export default function SignalsScreen() {
     return () => clearTimeout(debounce);
   }, [fetchSignals]);
 
-  // Apply persona filtering on fetched signals
-  const filteredSignals = filterSignals(signals) as Array<Signal & { highlighted: boolean }>;
-
   const renderItem = useCallback(
-    ({ item }: { item: Signal & { highlighted: boolean } }) => (
-      <SignalCard signal={item} />
-    ),
+    ({ item }: { item: Signal }) => <SignalCard signal={item} />,
     []
   );
 
@@ -286,7 +265,7 @@ export default function SignalsScreen() {
           <View>
             <Text style={screen.title}>Signals</Text>
             <Text style={screen.subtitle}>
-              {personaState.persona} lens · {filteredSignals.length} signals
+              {signals.length} signals
             </Text>
           </View>
         </View>
@@ -365,14 +344,14 @@ export default function SignalsScreen() {
             <Text style={screen.retryBtnText}>Retry</Text>
           </Pressable>
         </View>
-      ) : filteredSignals.length === 0 ? (
+      ) : signals.length === 0 ? (
         <View style={screen.centered}>
           <TrendingUp size={32} color="#334155" />
           <Text style={screen.emptyText}>No signals found.{"\n"}Initialise your War Room from the Dashboard.</Text>
         </View>
       ) : (
         <FlatList
-          data={filteredSignals}
+          data={signals}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={screen.list}

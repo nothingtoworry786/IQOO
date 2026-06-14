@@ -12,9 +12,8 @@ from app.agents.marketing import MarketingAgent
 from app.agents.product import ProductAgent
 from app.agents.sales import SalesAgent
 from app.agents.strategy import StrategyAgent
-from app.core.ai_provider import get_ai_provider
-from app.providers.base import AIProviderError
-from app.services.search_tool import research, format_search_results
+from app.core.config import settings
+from app.services.search_tool import research
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +69,7 @@ async def run_agent(agent_name: str, context: str) -> dict:
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     competitor_id: str | None = Field(None)
+    company: str | None = Field(None, description="Company whose knowledge shard to query")
 
 
 class ChatResponse(BaseModel):
@@ -132,101 +132,79 @@ async def _load_db_context(competitor_id: str | None) -> str:
         return "Database context unavailable."
 
 
-async def _build_search_queries(question: str, db_context: str, provider: Any) -> list[str]:
-    """Ask the AI to generate 1-2 targeted search queries for the question."""
-    prompt = (
-        f"You are a search query generator for a competitive intelligence tool.\n\n"
-        f"User question: {question}\n\n"
-        f"Tracked competitors context:\n{db_context[:500]}\n\n"
-        f"Generate 1-2 precise Google search queries that would find current, relevant information "
-        f"to answer this question. Focus on recent news, data, or events.\n\n"
-        f"Return ONLY a JSON object like: {{\"queries\": [\"query 1\", \"query 2\"]}}"
-    )
-    try:
-        import json
-        import re
-        raw = await provider.generate(prompt)
-        # Strip thinking blocks
-        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-        # Extract JSON
-        match = re.search(r'\{.*\}', raw, re.DOTALL)
-        if match:
-            data = json.loads(match.group())
-            queries = data.get("queries", [])
-            return [q for q in queries if isinstance(q, str) and q.strip()][:2]
-    except Exception as exc:
-        logger.debug("_build_search_queries failed: %s", exc)
-    # Fallback: use the question directly
-    return [question]
+def _chat_provider():
+    """Chatbot LLM — Groq (same provider as the rest of the pipeline)."""
+    from app.core.ai_provider import get_ai_provider
+    return get_ai_provider()
 
 
-@router.post("/chat", response_model=ChatResponse, summary="Research agent — answers questions with live web search + DB context")
+@router.post("/chat", response_model=ChatResponse, summary="Chatbot — RAG over company + competitor knowledge, answered by Groq")
 async def chat_with_ai(data: ChatRequest) -> ChatResponse:
     """
-    Research agent pipeline:
-      1. Load tracked competitor context from DB
-      2. Generate targeted search queries from the user's question
-      3. Execute web searches via SerpAPI
-      4. Synthesize a final answer using AI + DB context + search results
+    RAG chatbot pipeline:
+      1. Ensure the RAG knowledge base (company context + competitors + signals
+         + predictions) is populated.
+      2. Retrieve the most relevant context for the user's question from RAG.
+      3. (Optional) add fresh web results via SerpAPI — no LLM needed.
+      4. Answer with the Groq model.
     """
-    try:
-        provider = get_ai_provider()
-    except Exception:
-        provider = None
+    from app.services import rag
 
-    # ── Step 1: DB context ────────────────────────────────────────────────────
-    db_context = await _load_db_context(data.competitor_id)
+    # ── Step 1: Ensure the company's knowledge shard is populated ─────────────
+    await rag.ensure_knowledge_base(data.company)
 
-    # ── Step 2 + 3: Search ────────────────────────────────────────────────────
-    search_text = "No web search results — SERPAPI_KEY not configured."
+    # ── Step 2: Hybrid (dense+sparse) retrieval from the company's shard ──────
+    rag_docs = await rag.query_knowledge(data.message, company=data.company, n_results=6)
+    if rag_docs:
+        kb_context = "\n".join(f"- {d}" for d in rag_docs)
+    else:
+        # Fallback: pull straight from the DB if the KB is empty
+        kb_context = await _load_db_context(data.competitor_id)
+
+    # ── Step 3: Optional fresh web search (SerpAPI only — no LLM) ──────────────
+    search_text = ""
     source_count = 0
-    source_urls: list[str] = []
+    try:
+        search_text, source_urls = await research(question=data.message)
+        source_count = len(source_urls)
+    except Exception as exc:
+        logger.debug("Chat web search skipped: %s", exc)
 
-    if provider:
-        try:
-            queries = await _build_search_queries(data.message, db_context, provider)
-            logger.info("Research agent queries: %s", queries)
-            search_text, source_urls = await research(
-                question=queries[0] if queries else data.message,
-                extra_queries=queries[1:],
-            )
-            source_count = len(source_urls)
-            logger.info("Research agent: %d sources retrieved", source_count)
-        except Exception as exc:
-            logger.warning("Search step failed: %s", exc)
-            search_text = "Web search unavailable."
-
-    # ── Step 4: Synthesize ────────────────────────────────────────────────────
-    if provider:
-        try:
-            final_prompt = (
-                "You are MarketWatch AI, an expert competitive intelligence analyst. "
-                "Answer the user's question using BOTH the internal database context "
-                "AND the fresh web search results provided below. "
-                "Be concise (3-5 paragraphs), cite specific facts, and end with 1-2 actionable recommendations.\n\n"
-                f"--- INTERNAL DATABASE CONTEXT ---\n{db_context}\n\n"
-                f"--- LIVE WEB SEARCH RESULTS ---\n{search_text}\n\n"
-                f"--- USER QUESTION ---\n{data.message}\n\n"
-                "Provide a strategic, data-driven answer:"
-            )
-            raw = await provider.generate(final_prompt)
-            reply = raw.strip()
-            model_name = provider.__class__.__name__.replace("Provider", "")
-            if source_count > 0:
-                reply += f"\n\n_Researched {source_count} live sources._"
-            return ChatResponse(reply=reply, model_used=model_name, sources_used=source_count)
-        except Exception as exc:
-            logger.warning("AI synthesis failed: %s", exc)
-
-    # ── Fallback: DB context only ─────────────────────────────────────────────
-    return ChatResponse(
-        reply=(
-            f"Here is the current intelligence from your tracked competitors:\n\n{db_context}\n\n"
-            f"(AI provider unavailable — showing raw database context.)"
-        ),
-        model_used="db-only",
-        sources_used=0,
+    # ── Step 4: Answer with the Groq model ────────────────────────────────────
+    web_block = f"\n\n--- LIVE WEB SEARCH ---\n{search_text}" if search_text.strip() else ""
+    prompt = (
+        "You are MarketWatch AI, a competitive-intelligence assistant for the user's company. "
+        "Answer the user's question using the KNOWLEDGE BASE below — it contains our company "
+        "profile, tracked competitors, intelligence signals, and predictions. "
+        "Be concise and specific, cite competitor names and signals where relevant, and finish "
+        "with one actionable suggestion. If the knowledge base doesn't cover the answer, say so plainly.\n\n"
+        f"--- KNOWLEDGE BASE (retrieved context) ---\n{kb_context}{web_block}\n\n"
+        f"--- USER QUESTION ---\n{data.message}\n\n"
+        "Answer:"
     )
+
+    provider = _chat_provider()
+    try:
+        reply = (await provider.generate(prompt)).strip()
+        grounding = f"{len(rag_docs)} knowledge entries"
+        if source_count:
+            grounding += f" + {source_count} live sources"
+        reply += f"\n\n_{settings.GROQ_MODEL} · grounded on {grounding}._"
+        return ChatResponse(
+            reply=reply,
+            model_used=settings.GROQ_MODEL,
+            sources_used=source_count,
+        )
+    except Exception as exc:
+        logger.warning("Chat generation failed: %s", exc)
+        return ChatResponse(
+            reply=(
+                "I couldn't reach the AI model right now. "
+                f"Here is the relevant context I found:\n\n{kb_context}"
+            ),
+            model_used="rag-only",
+            sources_used=source_count,
+        )
 
 
 @router.get("/activity", response_model=dict, summary="Live agent activity feed")
@@ -242,7 +220,7 @@ async def get_agent_activity(
     from app.models.agent_log import AgentLog
     from app.models.competitor import Competitor
     from app.services.database import async_session_factory
-    from sqlalchemy import select, desc, outerjoin
+    from sqlalchemy import select, desc
 
     async with async_session_factory() as session:
         result = await session.execute(

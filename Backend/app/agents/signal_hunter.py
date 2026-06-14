@@ -16,11 +16,52 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
-from app.services.claude import score_signal_intent
 
 logger = logging.getLogger(__name__)
 
 SERPAPI_BASE = "https://serpapi.com/search"
+
+# Base competitive-intent weight per signal type (0-100).
+_TYPE_WEIGHT = {
+    "Funding": 80,
+    "Expansion": 75,
+    "Product": 66,
+    "Leadership": 60,
+    "Hiring": 55,
+    "Marketing": 46,
+    "Sentiment": 40,
+}
+
+# High-signal keywords that bump the intent score when present in title/snippet.
+_HOT_KEYWORDS = (
+    "launch", "raise", "raised", "million", "billion", "series a", "series b",
+    "series c", "funding", "valuation", "ipo", "acquire", "acquisition",
+    "merger", "partnership", "expand", "expansion", "record", "surge",
+    "double", "triple", "new market", "rollout", "unveil", "breakthrough",
+)
+
+
+def _heuristic_intent(signal_type: str, title: str, snippet: str) -> int:
+    """Fast, deterministic 0-100 competitive-intent score — no AI call.
+
+    Avoids one AI request per signal (which both burns quota and, when the
+    provider is throttled, collapses every score to a flat default).
+    """
+    score = _TYPE_WEIGHT.get(signal_type, 50)
+    text = f"{title} {snippet}".lower()
+
+    hits = sum(1 for kw in _HOT_KEYWORDS if kw in text)
+    score += min(hits * 6, 18)            # up to +18 for strong keywords
+
+    if "2026" in text:
+        score += 6                        # very recent
+    elif "2025" in text:
+        score += 3
+
+    if "%" in text or any(c.isdigit() for c in text):
+        score += 3                        # concrete metrics → more actionable
+
+    return max(0, min(100, score))
 
 
 async def _serp_search(query: str, num: int = 10) -> list[dict[str, Any]]:
@@ -52,7 +93,7 @@ async def _make_signal(
     link: str,
     meaning: str,
 ) -> dict[str, Any]:
-    intent = await score_signal_intent(signal_type, title, snippet)
+    intent = _heuristic_intent(signal_type, title, snippet)
     return {
         "type": signal_type,
         "title": title[:200],
@@ -127,6 +168,46 @@ async def _product(name: str) -> list[dict]:
 serp_search = _serp_search
 
 
+async def persist_signals(competitor_id: str, raw_signals: list[dict]) -> int:
+    """Save hunted signal dicts to the signals table. Returns the number saved.
+
+    Maps the raw signal dict (type/title/description/source/intent_score) onto
+    the Signal ORM model, converting the 0-100 intent score to the 0-10
+    impact/urgency scale the app expects.
+    """
+    if not raw_signals:
+        return 0
+
+    from app.models.signal import Signal, SignalCategory
+    from app.services.database import async_session_factory
+
+    saved = 0
+    async with async_session_factory() as session:
+        for s in raw_signals:
+            try:
+                sig_type = SignalCategory(s.get("type", "Marketing"))
+            except ValueError:
+                sig_type = SignalCategory.MARKETING
+
+            intent = float(s.get("intent_score", 50) or 50)
+            impact = round(min(10.0, max(0.0, intent / 10.0)), 1)
+            urgency = round(min(10.0, impact * 0.9), 1)
+
+            session.add(Signal(
+                competitor_id=competitor_id,
+                signal_type=sig_type,
+                title=(s.get("title") or "Untitled signal")[:256],
+                description=s.get("description") or "",
+                source=(s.get("source") or "Google Search")[:256],
+                impact_score=impact,
+                urgency_score=urgency,
+            ))
+            saved += 1
+        await session.commit()
+
+    return saved
+
+
 async def hunt_signals(
     competitor_name: str = "",
     website: str | None = None,
@@ -165,4 +246,15 @@ async def hunt_signals(
         name,
         "set" if settings.SERPAPI_KEY else "missing",
     )
+
+    # Persist to DB when a competitor_id is provided (the live SQLite callers in
+    # discovery / onboarding). Callers without a competitor_id (e.g. the demo
+    # simulator) save signals themselves, so we don't double-write.
+    if competitor_id and signals:
+        try:
+            saved = await persist_signals(competitor_id, signals)
+            logger.info("SignalHunter: persisted %d/%d signals for '%s'", saved, len(signals), name)
+        except Exception as exc:
+            logger.warning("SignalHunter: failed to persist signals for '%s': %s", name, exc)
+
     return signals

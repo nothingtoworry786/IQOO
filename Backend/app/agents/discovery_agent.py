@@ -9,6 +9,7 @@ import uuid
 
 from app.core.ai_provider import get_ai_provider
 from app.providers.base import AIProviderError
+from app.services.claude import _filter_real_competitors
 from app.services.database import async_session_factory
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,7 @@ Already known (EXCLUDE these): {exclude_str}
 Identify 5 real, specific companies that directly compete with {company_name} in {industry}.
 Do NOT include companies from the excluded list.
 Companies must be real and verifiable — no made-up names.
+NEVER use placeholder names like "Rival Alpha", "Competitor A", "Brand X", "Player 1", etc.
 
 Return ONLY a valid JSON array, nothing else:
 [
@@ -57,7 +59,8 @@ market_scope: "Local" | "Regional" | "National" | "Global" """
             cleaned = re.sub(r"^```\w*\n?", "", cleaned)
             cleaned = re.sub(r"\n?```$", "", cleaned)
         result: list[dict] = json.loads(cleaned.strip())
-        return [r for r in result if isinstance(r, dict) and r.get("name")]
+        real = [r for r in result if isinstance(r, dict) and r.get("name")]
+        return _filter_real_competitors(real)
     except (AIProviderError, json.JSONDecodeError, Exception) as exc:
         logger.warning("DiscoveryAgent AI call failed: %s", exc)
         return []

@@ -60,6 +60,21 @@ class Settings:
         self.SERPAPI_KEY: str = os.getenv("SERPAPI_KEY", "")
         self.RAPIDAPI_KEY: str = os.getenv("RAPIDAPI_KEY", "")
         self.CHROMADB_PATH: str = os.getenv("CHROMADB_PATH", "./chromadb_data")
+        # ── Chroma Cloud (hybrid dense+sparse search) ─────────────────────────
+        self.CHROMA_HOST: str = os.getenv("CHROMA_HOST", "api.trychroma.com")
+        self.CHROMA_API_KEY: str = os.getenv("CHROMA_API_KEY", "")
+        self.CHROMA_TENANT: str = os.getenv("CHROMA_TENANT", "")
+        self.CHROMA_DATABASE: str = os.getenv("CHROMA_DATABASE", "")
+        # The Chroma Cloud Qwen/Splade embedding functions read the key from the
+        # environment — make sure it's present for them.
+        if self.CHROMA_API_KEY:
+            os.environ.setdefault("CHROMA_API_KEY", self.CHROMA_API_KEY)
+        # ── Chatbot: dedicated on-device Ollama (Termux), independent of the
+        #    main AI_PROVIDER pipeline. Always local gemma4:e2b. ────────────────
+        self.CHAT_OLLAMA_HOST: str = os.getenv(
+            "CHAT_OLLAMA_HOST", os.getenv("OLLAMA_HOST", "http://192.168.11.124:11434")
+        )
+        self.CHAT_OLLAMA_MODEL: str = os.getenv("CHAT_MODEL", os.getenv("CHAT_OLLAMA_MODEL", "gemma4:e2b"))
         self.SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
         if "postgresql" in self.DATABASE_URL:
             logger.info("Using PostgreSQL database (%s...)", self.DATABASE_URL.split("@")[-1] if "@" in self.DATABASE_URL else self.DATABASE_URL[:30])

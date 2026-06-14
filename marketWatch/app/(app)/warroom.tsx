@@ -8,9 +8,8 @@ import {
   Pressable,
   RefreshControl,
 } from "react-native";
-import { Swords, AlertTriangle, RefreshCw, Cpu } from "lucide-react-native";
+import { Swords, AlertTriangle, RefreshCw } from "lucide-react-native";
 import { api, type WarRoomReport, type Signal } from "../../services/apiClient";
-import { usePersona, type Persona } from "../../store/personaStore";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // War Room Report Card
@@ -160,115 +159,6 @@ const wrc = StyleSheet.create({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Local Gemma Insight Box
-// ─────────────────────────────────────────────────────────────────────────────
-
-function LocalGemmaBox({
-  persona,
-  insight,
-  loading,
-}: {
-  persona: Persona;
-  insight: string;
-  loading: boolean;
-}) {
-  return (
-    <View style={gemma.container}>
-      <View style={gemma.headerRow}>
-        <Cpu size={16} color="#A78BFA" />
-        <Text style={gemma.title}>Local Gemma Insights</Text>
-        <View style={gemma.statusPill}>
-          <View style={gemma.statusDot} />
-          <Text style={gemma.statusText}>ON-DEVICE</Text>
-        </View>
-      </View>
-      <Text style={gemma.persona}>
-        {persona === "Founder" ? "⚡ Founder / Management Lens" : "🎯 Marketing Team Lens"}
-      </Text>
-      <View style={gemma.divider} />
-
-      {loading ? (
-        <ActivityIndicator size="small" color="#A78BFA" style={{ marginVertical: 12 }} />
-      ) : (
-        <Text style={gemma.insightText}>{insight}</Text>
-      )}
-
-      <Text style={gemma.disclaimer}>
-        ⚠️ Simulated local inference — production build will use on-device Gemma 2B (GGUF/ONNX) via react-native-executorch.
-      </Text>
-    </View>
-  );
-}
-
-const gemma = StyleSheet.create({
-  container: {
-    backgroundColor: "#1A0F2E",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#4C1D95",
-    padding: 16,
-    marginBottom: 14,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 6,
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#DDD6FE",
-    flex: 1,
-  },
-  statusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "#2D1B4E",
-    borderRadius: 99,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#A78BFA",
-  },
-  statusText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#A78BFA",
-    letterSpacing: 1,
-  },
-  persona: {
-    fontSize: 12,
-    color: "#7C3AED",
-    fontWeight: "600",
-    marginBottom: 10,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#2D1B4E",
-    marginBottom: 12,
-  },
-  insightText: {
-    fontSize: 13,
-    color: "#C4B5FD",
-    lineHeight: 21,
-    fontFamily: "Courier New",
-  },
-  disclaimer: {
-    fontSize: 11,
-    color: "#4C1D95",
-    marginTop: 12,
-    lineHeight: 17,
-    fontStyle: "italic",
-  },
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
 // War Room Screen
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -278,10 +168,6 @@ export default function WarRoomScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [gemmaInsight, setGemmaInsight] = useState("");
-  const [gemmaLoading, setGemmaLoading] = useState(false);
-
-  const { state: personaState, generateLocalInsight } = usePersona();
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -295,32 +181,13 @@ export default function WarRoomScreen() {
       ]);
       setReports(reportsData);
       setSignals(signalsData);
-
-      // Generate local Gemma insight once data arrives
-      setGemmaLoading(true);
-      // Small artificial delay to simulate model inference warmup
-      await new Promise((r) => setTimeout(r, 600));
-      setGemmaInsight(generateLocalInsight(reportsData, signalsData));
-      setGemmaLoading(false);
     } catch (err: any) {
       setError(err?.message ?? "Failed to load War Room data.");
-      setGemmaLoading(false);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [generateLocalInsight]);
-
-  // Re-generate insight when persona switches
-  useEffect(() => {
-    if (reports.length > 0 && signals.length > 0) {
-      setGemmaLoading(true);
-      setTimeout(() => {
-        setGemmaInsight(generateLocalInsight(reports, signals));
-        setGemmaLoading(false);
-      }, 400);
-    }
-  }, [personaState.persona, generateLocalInsight]);
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -371,9 +238,7 @@ export default function WarRoomScreen() {
           <Swords size={20} color="#F87171" />
           <View>
             <Text style={screen.title}>War Room</Text>
-            <Text style={screen.subtitle}>
-              {personaState.persona} lens · Critical threat response
-            </Text>
+            <Text style={screen.subtitle}>Critical threat response</Text>
           </View>
         </View>
 
@@ -399,16 +264,8 @@ export default function WarRoomScreen() {
       </View>
 
       <View style={screen.body}>
-        {/* ── Local Gemma Box ──────────────────────────────────────── */}
-        <Text style={screen.sectionLabel}>ON-DEVICE INTELLIGENCE</Text>
-        <LocalGemmaBox
-          persona={personaState.persona}
-          insight={gemmaInsight}
-          loading={gemmaLoading}
-        />
-
         {/* ── War Room Reports ─────────────────────────────────────── */}
-        <Text style={[screen.sectionLabel, { marginTop: 8 }]}>
+        <Text style={screen.sectionLabel}>
           THREAT BRIEFINGS ({reports.length})
         </Text>
 

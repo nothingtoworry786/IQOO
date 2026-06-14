@@ -94,6 +94,40 @@ async def _call_json(prompt: str) -> Any:
         return _extract_json(raw2)
 
 
+# ── Placeholder-name guard ────────────────────────────────────────────────────
+
+_PLACEHOLDER_PATTERNS = re.compile(
+    r"^(rival|competitor|company|brand|player|startup|firm|vendor)\s*"
+    r"(alpha|beta|gamma|delta|a|b|c|d|x|y|z|\d+)$",
+    re.IGNORECASE,
+)
+
+def _is_fake_name(name: str) -> bool:
+    """Return True if the name looks like an AI-generated placeholder."""
+    n = name.strip()
+    if not n or len(n) < 2:
+        return True
+    if _PLACEHOLDER_PATTERNS.match(n):
+        return True
+    # Single generic word with no real-company feel
+    generic = {"unknown", "n/a", "none", "tbd", "placeholder", "example", "test"}
+    if n.lower() in generic:
+        return True
+    return False
+
+
+def _filter_real_competitors(competitors: list[dict]) -> list[dict]:
+    real = [c for c in competitors if not _is_fake_name(c.get("name", ""))]
+    removed = len(competitors) - len(real)
+    if removed:
+        logger.warning(
+            "Filtered %d placeholder/fake competitor names: %s",
+            removed,
+            [c.get("name") for c in competitors if _is_fake_name(c.get("name", ""))],
+        )
+    return real
+
+
 # ── Public functions ──────────────────────────────────────────────────────────
 
 async def enrich_company_profile(
@@ -181,9 +215,10 @@ STRICT RULES:
 1. Competitors MUST be in the EXACT same category: {sub_category}
 2. Competitors MUST target the SAME customers: {target_customers}
 3. Competitors MUST operate in the SAME geography: {geographic_focus}
-4. Only include REAL companies that genuinely exist
+4. Only include REAL companies with verifiable websites — no made-up names
 5. Do NOT include {company_name} itself
 6. Do NOT include companies from unrelated industries
+7. NEVER use placeholder names like "Rival Alpha", "Competitor A", "Brand X", "Player 1", etc.
 
 Example: If the company is an ed-tech coding bootcamp, return OTHER ed-tech coding bootcamps — NOT grocery apps, food delivery, or unrelated software.
 
@@ -201,7 +236,8 @@ Return ONLY valid JSON with no extra text:
     try:
         data = await _call_json(prompt)
         competitors = data.get("competitors", [])
-        logger.info("discover_competitors returned %d raw results", len(competitors))
+        competitors = _filter_real_competitors(competitors)
+        logger.info("discover_competitors returned %d real results", len(competitors))
         return competitors
     except Exception as exc:
         logger.warning("discover_competitors failed: %s", exc)
@@ -457,32 +493,3 @@ expansion_trigger must be: "funding", "hiring", "partnerships", or "organic" """
                 "Ongoing signal collection will improve profile accuracy."
             ),
         }
-
-
-async def score_signal_intent(
-    signal_type: str,
-    title: str,
-    description: str,
-) -> int:
-    """Score competitive intent of a signal. Returns 0-100."""
-    prompt = f"""Rate the competitive threat level of this market signal on a scale of 0 to 100.
-
-0 = irrelevant noise
-50 = moderate competitive signal worth monitoring
-80+ = high-priority threat requiring immediate action
-
-Signal Type: {signal_type}
-Title: {title}
-Description: {description[:300]}
-
-Respond with ONLY a single integer between 0 and 100. No other text."""
-
-    try:
-        raw = await _call(prompt)
-        # Strip thinking blocks before extracting number
-        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-        match = re.search(r"\d+", raw)
-        score = int(match.group()) if match else 50
-        return max(0, min(100, score))
-    except Exception:
-        return 50

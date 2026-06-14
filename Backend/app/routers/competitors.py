@@ -55,21 +55,45 @@ class DiscoverResponse(BaseModel):
     ),
 )
 async def discover_competitors(data: DiscoverRequest) -> DiscoverResponse:
-    """Run the MVP competitor discovery and data seeding pipeline."""
+    """Run the MVP competitor discovery and data seeding pipeline.
+
+    If the AI provider is busy/rate-limited (or no competitors come back), the
+    job is added to a background retry queue and completes automatically — the
+    client just needs to pull-to-refresh shortly after.
+    """
     from app.services.competitor_analysis import discover_company_and_competitors
+    from app.workers.discovery_queue import enqueue_discovery
 
     try:
         result = await discover_company_and_competitors(
             company_name=data.company_name,
             website_url=data.website_url,
         )
+        # No competitors → provider likely down/rate-limited. Queue a retry.
+        if result.get("competitors_found", 0) == 0:
+            await enqueue_discovery(data.company_name, data.website_url)
+            result["status"] = "queued"
+            result["message"] = (
+                "Couldn't reach competitors just yet (AI provider busy). "
+                "It's queued and will finish automatically — pull to refresh in a minute."
+            )
         return DiscoverResponse(**result)
     except Exception as exc:
-        logger.exception("Discovery pipeline failed: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Discovery failed: {exc}",
-        ) from exc
+        # Don't fail the request — queue it for background completion.
+        logger.exception("Discovery pipeline failed, queuing for retry: %s", exc)
+        await enqueue_discovery(data.company_name, data.website_url)
+        return DiscoverResponse(
+            status="queued",
+            company_name=data.company_name,
+            website_url=data.website_url,
+            competitors_found=0,
+            signals_seeded=0,
+            competitors=[],
+            message=(
+                "Discovery is taking longer than expected (AI provider busy). "
+                "It's been queued and will complete automatically — pull to refresh shortly."
+            ),
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -22,132 +22,11 @@ import {
   Users,
   RadioTower,
   AlertTriangle,
-  Target,
   Sparkles,
   Crosshair,
   BarChart3,
-  ScanEye,
 } from "lucide-react-native";
 import { api, type Competitor, type DiscoverResponse } from "../../services/apiClient";
-import { usePersona, type Persona } from "../../store/personaStore";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Persona Switcher Component (Redesigned)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function PersonaSwitcher() {
-  const { state, setPersona } = usePersona();
-  const personas: Persona[] = ["Founder", "Marketing"];
-  const glowAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-        Animated.timing(glowAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
-      ]),
-    ).start();
-  }, []);
-
-  return (
-    <View style={switcher.wrapper}>
-      <View style={switcher.container}>
-        {personas.map((p) => {
-          const isActive = state.persona === p;
-          const Icon = p === "Founder" ? Target : ScanEye;
-          return (
-            <Pressable
-              key={p}
-              style={[
-                switcher.pill,
-                isActive && switcher.pillActive,
-              ]}
-              onPress={() => setPersona(p)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
-            >
-              <Icon size={16} color={isActive ? "#22D3EE" : "#64748B"} />
-              <Text
-                style={[
-                  switcher.pillText,
-                  isActive && switcher.pillTextActive,
-                ]}
-              >
-                {p === "Founder" ? "Founder" : "Marketing"}
-              </Text>
-              {isActive && <View style={switcher.activeDot} />}
-            </Pressable>
-          );
-        })}
-      </View>
-      <Text style={switcher.hint}>
-        {state.persona === "Founder"
-          ? "🔍 Showing funding, expansion & hiring signals"
-          : "🎯 Showing campaign, copy & feature signals"}
-      </Text>
-    </View>
-  );
-}
-
-const switcher = StyleSheet.create({
-  wrapper: {
-    gap: 8,
-  },
-  container: {
-    flexDirection: "row",
-    gap: 8,
-    backgroundColor: "#0F172A",
-    borderRadius: 14,
-    padding: 5,
-    borderWidth: 1,
-    borderColor: "#1E293B",
-  },
-  pill: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    position: "relative",
-  },
-  pillActive: {
-    backgroundColor: "#164E63",
-    borderWidth: 1,
-    borderColor: "#22D3EE",
-    shadowColor: "#22D3EE",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  pillText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
-  },
-  pillTextActive: {
-    color: "#22D3EE",
-  },
-  activeDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: "#22D3EE",
-    position: "absolute",
-    bottom: 3,
-    right: "50%",
-    marginRight: -2.5,
-  },
-  hint: {
-    fontSize: 11,
-    color: "#475569",
-    textAlign: "center",
-    fontStyle: "italic",
-  },
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KPI Card Component
@@ -426,8 +305,6 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [threatCount, setThreatCount] = useState<number | null>(null);
 
-  const { state: personaState } = usePersona();
-
   // Animations
   const headerFade = useRef(new Animated.Value(0)).current;
   const formSlide = useRef(new Animated.Value(30)).current;
@@ -524,7 +401,7 @@ export default function DashboardScreen() {
               </Text>
             </View>
             <Pressable
-              onPress={fetchCompetitors}
+              onPress={() => fetchCompetitors(true)}
               style={styles.heroRefresh}
               accessibilityLabel="Refresh"
             >
@@ -555,12 +432,6 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Animated.View>
-
-      {/* ── Intelligence Lens ──────────────────────────────────────────── */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>INTELLIGENCE LENS</Text>
-        <PersonaSwitcher />
-      </View>
 
       {/* ── Quick Actions ──────────────────────────────────────────────── */}
       <View style={styles.section}>

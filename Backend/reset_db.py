@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-reset_db.py — Wipe ALL data from both databases (schema preserved).
+reset_db.py — Wipe ALL data from both database stacks (schema preserved).
 
-  • SQLite  : deletes every row in every ORM-managed table
-  • Supabase: deletes every row in every v2 table via the PostgREST API
+Uses DATABASE_URL directly via SQLAlchemy — works for both SQLite and
+Supabase PostgreSQL without needing separate SUPABASE_URL / SUPABASE_KEY.
 
 Run from the Backend directory:
     python reset_db.py
@@ -14,7 +14,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -24,144 +23,91 @@ load_dotenv(Path(__file__).parent / ".env")
 logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(message)s")
 log = logging.getLogger("reset")
 
-# ── SQLite tables (FK-safe order: children first) ─────────────────────────────
-SQLITE_TABLES = [
+# Union of all tables across both stacks — order matters (children first for FKs)
+ALL_TABLES = [
     "agent_logs",
     "warroom_reports",
     "predictions",
     "competitive_dna",
+    "dna_profiles",
     "signals",
+    "discovery_jobs",
     "alerts",
+    "competitor_profiles",
     "competitor_markets",
     "competitor_relationships",
     "markets",
     "competitors",
+    "company_profiles",
     "users",
 ]
 
-# ── Supabase tables (children first) ─────────────────────────────────────────
-SUPABASE_TABLES = [
-    "agent_logs",
-    "dna_profiles",
-    "signals",
-    "discovery_jobs",
-    "competitor_profiles",
-    "competitors",
-    "company_profiles",
-]
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SQLite reset
-# ─────────────────────────────────────────────────────────────────────────────
-
-async def reset_sqlite() -> int:
-    """Delete all rows from every SQLite table. Returns total rows deleted."""
+async def reset_via_sqlalchemy() -> int:
+    """Delete all rows using the DATABASE_URL connection (SQLite or PostgreSQL)."""
     db_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./marketwatch.db")
-    if "postgresql" in db_url:
-        log.info("  SQLite: DATABASE_URL points to PostgreSQL — skipping")
-        return 0
+
+    # Auto-fix bare postgresql:// → postgresql+asyncpg://
+    if db_url.startswith("postgresql://") and "+asyncpg" not in db_url:
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    is_pg = "postgresql" in db_url
+    log.info("  Database: %s", "PostgreSQL (Supabase)" if is_pg else "SQLite")
 
     try:
         from sqlalchemy.ext.asyncio import create_async_engine
         from sqlalchemy import text
     except ImportError:
-        log.error("  sqlalchemy / aiosqlite not installed — cannot reset SQLite")
+        log.error("  sqlalchemy not installed — run: pip install sqlalchemy aiosqlite")
         return 0
 
-    engine = create_async_engine(db_url, echo=False)
+    connect_args = {"statement_cache_size": 0} if is_pg else {}
+    engine = create_async_engine(
+        db_url,
+        echo=False,
+        pool_pre_ping=True,
+        connect_args=connect_args,
+    )
+
     total = 0
 
-    async with engine.begin() as conn:
-        await conn.execute(text("PRAGMA foreign_keys = OFF"))
-        for tbl in SQLITE_TABLES:
+    if not is_pg:
+        # SQLite: single transaction with FK checks off
+        async with engine.begin() as conn:
+            await conn.execute(text("PRAGMA foreign_keys = OFF"))
+            for tbl in ALL_TABLES:
+                try:
+                    r = await conn.execute(text(f'DELETE FROM "{tbl}"'))
+                    log.info("  %-32s %d rows deleted", tbl, r.rowcount)
+                    total += r.rowcount
+                except Exception as exc:
+                    log.warning("  %-32s SKIP — %s", tbl, str(exc)[:80])
+            await conn.execute(text("PRAGMA foreign_keys = ON"))
+    else:
+        # PostgreSQL: each table gets its own transaction so one missing table
+        # doesn't put the connection into a failed state for everything else.
+        for tbl in ALL_TABLES:
             try:
-                r = await conn.execute(text(f'DELETE FROM "{tbl}"'))
-                log.info("  SQLite  %-28s %d rows deleted", tbl, r.rowcount)
-                total += r.rowcount
+                async with engine.begin() as conn:
+                    await conn.execute(text(f'TRUNCATE TABLE "{tbl}" CASCADE'))
+                log.info("  %-32s TRUNCATED", tbl)
             except Exception as exc:
-                log.warning("  SQLite  %-28s SKIP — %s", tbl, exc)
-        await conn.execute(text("PRAGMA foreign_keys = ON"))
+                err = str(exc)
+                if "UndefinedTable" in err or "does not exist" in err.lower():
+                    log.debug("  %-32s not in schema — skipped", tbl)
+                else:
+                    log.warning("  %-32s SKIP — %s", tbl, err[:120])
 
     await engine.dispose()
     return total
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Supabase reset
-# ─────────────────────────────────────────────────────────────────────────────
-
-def reset_supabase() -> dict[str, str]:
-    """Delete all rows from every Supabase table via direct PostgREST HTTP calls."""
-    url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    key = os.getenv("SUPABASE_KEY", "")
-
-    if not url or not key:
-        log.warning("  Supabase: SUPABASE_URL or SUPABASE_KEY missing — skipping")
-        return {}
-
-    try:
-        import httpx
-    except ImportError:
-        log.error("  httpx not installed — cannot reset Supabase")
-        return {}
-
-    headers = {
-        "apikey": key,
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal",
-    }
-
-    results: dict[str, str] = {}
-
-    for tbl in SUPABASE_TABLES:
-        try:
-            # PostgREST requires at least one filter for DELETE.
-            # Using "id neq zero-UUID" matches every real row (no row uses the zero UUID).
-            resp = httpx.delete(
-                f"{url}/rest/v1/{tbl}",
-                headers=headers,
-                params={"id": "neq.00000000-0000-0000-0000-000000000000"},
-                timeout=30.0,
-            )
-            if resp.status_code in (200, 204):
-                log.info("  Supabase %-28s cleared (HTTP %d)", tbl, resp.status_code)
-                results[tbl] = "ok"
-            else:
-                log.warning(
-                    "  Supabase %-28s HTTP %d — %s",
-                    tbl, resp.status_code, resp.text[:200],
-                )
-                results[tbl] = f"error {resp.status_code}"
-        except Exception as exc:
-            log.warning("  Supabase %-28s ERROR — %s", tbl, exc)
-            results[tbl] = f"error: {exc}"
-
-    return results
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Entry point
-# ─────────────────────────────────────────────────────────────────────────────
-
 async def main() -> None:
-    log.info("═══ MarketWatch Full Database Reset ═══")
-    log.info("")
-
-    log.info("[1/2] SQLite")
-    sqlite_rows = await reset_sqlite()
-    log.info("      Total SQLite rows deleted: %d", sqlite_rows)
-    log.info("")
-
-    log.info("[2/2] Supabase")
-    supabase_results = reset_supabase()
-    errors = [t for t, s in supabase_results.items() if s != "ok"]
-    if errors:
-        log.warning("      Supabase tables with errors: %s", errors)
-    log.info("")
-
-    log.info("═══ Reset complete — both databases are empty ═══")
+    log.info("═══ MarketWatch Full Database Reset ═══\n")
+    total = await reset_via_sqlalchemy()
+    if total:
+        log.info("\n  Total rows deleted: %d", total)
+    log.info("\n═══ Reset complete — database is empty ═══")
 
 
 if __name__ == "__main__":
