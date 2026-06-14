@@ -19,6 +19,7 @@ import {
   Sparkles,
 } from "lucide-react-native";
 import { api } from "../../services/apiClient";
+import { setItem } from "../../services/storage";
 
 interface AgentStep {
   label: string;
@@ -186,6 +187,8 @@ export default function ProcessingScreen() {
         ]);
 
         if (active) {
+          // Cache company name so Profile screen can display it
+          await setItem("cache_company_name", companyName);
           router.replace({
             pathname: "/(onboarding)/complete",
             params: {

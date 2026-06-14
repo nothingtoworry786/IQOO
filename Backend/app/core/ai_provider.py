@@ -1,4 +1,4 @@
-"""AI provider factory — updated to support Anthropic/Claude."""
+"""AI provider factory — supports Groq, OpenRouter, Anthropic, and Ollama."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def get_ai_provider() -> AIProvider:
     """Factory function that returns the active AI provider based on configuration.
 
     The provider is selected via the ``AI_PROVIDER`` environment variable.
-    Supports: groq, openrouter, anthropic
+    Supports: groq, openrouter, anthropic, ollama
     """
     provider_name = settings.AI_PROVIDER
 
@@ -36,5 +36,10 @@ def get_ai_provider() -> AIProvider:
         except Exception as exc:
             logger.error("Failed to load Anthropic provider: %s", exc)
             raise ValueError(f"Anthropic provider not available: {exc}") from exc
+
+    if provider_name == "ollama":
+        logger.info("Initialising Ollama provider (host=%s, model=%s)", settings.OLLAMA_HOST, settings.OLLAMA_MODEL)
+        from app.providers.ollama_provider import OllamaProvider
+        return OllamaProvider()
 
     raise ValueError(f"Unknown AI provider: {provider_name}")

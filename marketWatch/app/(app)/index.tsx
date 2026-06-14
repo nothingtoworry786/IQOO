@@ -9,8 +9,10 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
+  useWindowDimensions,
+  RefreshControl,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ShieldAlert,
   Search,
@@ -28,8 +30,6 @@ import {
 } from "lucide-react-native";
 import { api, type Competitor, type DiscoverResponse } from "../../services/apiClient";
 import { usePersona, type Persona } from "../../store/personaStore";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Persona Switcher Component (Redesigned)
@@ -221,8 +221,9 @@ function QuickAction({
   label: string;
   onPress: () => void;
 }) {
+  const { width } = useWindowDimensions();
   return (
-    <Pressable style={qa.container} onPress={onPress}>
+    <Pressable style={[qa.container, { minWidth: (width - 64) / 3 }]} onPress={onPress}>
       <View style={qa.iconWrap}>{icon}</View>
       <Text style={qa.label}>{label}</Text>
     </Pressable>
@@ -238,7 +239,6 @@ const qa = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#334155",
-    minWidth: (SCREEN_WIDTH - 64) / 3,
   },
   iconWrap: {
     width: 40,
@@ -423,6 +423,8 @@ export default function DashboardScreen() {
   const [discoveryResult, setDiscoveryResult] = useState<DiscoverResponse | null>(null);
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [competitorsLoading, setCompetitorsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [threatCount, setThreatCount] = useState<number | null>(null);
 
   const { state: personaState } = usePersona();
 
@@ -446,15 +448,24 @@ export default function DashboardScreen() {
     ]).start();
   }, []);
 
-  const fetchCompetitors = useCallback(async () => {
-    setCompetitorsLoading(true);
+  const fetchCompetitors = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setCompetitorsLoading(true);
     try {
-      const data = await api.competitors.list();
+      const [data, predictions] = await Promise.all([
+        api.competitors.list(),
+        api.predictions.list({ limit: 200 }).catch(() => []),
+      ]);
       setCompetitors(data);
+      const threats = predictions.filter(
+        (p) => p.threat_level === "high" || p.threat_level === "critical"
+      ).length;
+      setThreatCount(threats);
     } catch (err) {
       console.warn("Could not fetch competitors:", err);
     } finally {
       setCompetitorsLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -485,11 +496,20 @@ export default function DashboardScreen() {
   }, [companyName, websiteUrl, fetchCompetitors]);
 
   return (
+    <SafeAreaView style={styles.safeArea}>
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => fetchCompetitors(true)}
+          tintColor="#22D3EE"
+          colors={["#22D3EE"]}
+        />
+      }
     >
       {/* ── Hero Header ────────────────────────────────────────────────── */}
       <Animated.View style={[styles.hero, { opacity: headerFade }]}>
@@ -522,7 +542,7 @@ export default function DashboardScreen() {
             />
             <KpiCard
               label="Threats"
-              value={competitors.length > 0 ? "3" : "—"}
+              value={threatCount === null ? "—" : threatCount}
               icon={<AlertTriangle size={16} color="#F87171" />}
               color="#F87171"
             />
@@ -695,6 +715,7 @@ export default function DashboardScreen() {
 
       <View style={{ height: 24 }} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -703,6 +724,10 @@ export default function DashboardScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#0B1121",
+  },
   container: {
     flex: 1,
     backgroundColor: "#0B1121",

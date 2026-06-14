@@ -15,6 +15,17 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import settings
 from app.models.base import Base
 
+# All models must be imported here so their tables are registered with
+# Base.metadata before create_all() runs. Adding a new model? Add it here too.
+import app.models.competitor       # noqa: F401, E402
+import app.models.signal           # noqa: F401, E402
+import app.models.prediction       # noqa: F401, E402
+import app.models.warroom          # noqa: F401, E402
+import app.models.alert            # noqa: F401, E402
+import app.models.competitive_dna  # noqa: F401, E402
+import app.models.market           # noqa: F401, E402
+import app.models.agent_log        # noqa: F401, E402
+
 logger = logging.getLogger(__name__)
 
 _is_postgres = "postgresql" in settings.DATABASE_URL
@@ -46,14 +57,28 @@ async def init_db() -> None:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             logger.info("pgvector extension enabled")
         await conn.run_sync(Base.metadata.create_all)
-        # Migrate: add new columns to existing SQLite tables only (PostgreSQL uses
-        # proper migrations; this lightweight ALTER TABLE doesn't support IF NOT EXISTS)
-        if not _is_postgres:
-            _new_cols = [
+        # ── Remove pre-seeded demo data (IDs starting with 'comp-') ───────────
+        await conn.execute(text("DELETE FROM competitors WHERE id LIKE 'comp-%'"))
+
+        if _is_postgres:
+            # ── Column migrations (PG 9.6+ IF NOT EXISTS) ──────────────────────
+            _pg_cols = [
+                "ALTER TABLE competitors  ADD COLUMN IF NOT EXISTS is_active           BOOLEAN NOT NULL DEFAULT TRUE",
+                "ALTER TABLE predictions  ADD COLUMN IF NOT EXISTS is_war_room_trigger  BOOLEAN NOT NULL DEFAULT FALSE",
+            ]
+            for stmt in _pg_cols:
+                try:
+                    await conn.execute(text(stmt))
+                except Exception as exc:
+                    logger.warning("PG column migration skipped: %s", exc)
+
+        else:
+            # SQLite: no IF NOT EXISTS support — swallow duplicate-column errors
+            _sqlite_cols = [
                 ("competitors", "is_active", "BOOLEAN DEFAULT 1"),
                 ("predictions", "is_war_room_trigger", "BOOLEAN DEFAULT 0"),
             ]
-            for table, col, definition in _new_cols:
+            for table, col, definition in _sqlite_cols:
                 try:
                     await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {definition}"))
                     logger.info("Migration: added %s.%s", table, col)

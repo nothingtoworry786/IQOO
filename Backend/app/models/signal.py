@@ -40,7 +40,12 @@ class Signal(Base, TimestampMixin):
         ForeignKey("competitors.id", ondelete="CASCADE"), nullable=False
     )
     signal_type: Mapped[SignalCategory] = mapped_column(
-        SAEnum(SignalCategory, name="signal_category", create_constraint=True),
+        SAEnum(
+            SignalCategory,
+            native_enum=False,
+            create_constraint=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
     )
     source: Mapped[str] = mapped_column(String(256), nullable=False)

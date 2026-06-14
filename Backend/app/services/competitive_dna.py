@@ -40,19 +40,8 @@ SIGNAL_TO_PATTERN_MAP: dict[str, list[str]] = {
 
 
 async def seed_dna_patterns() -> None:
-    """Seed the default competitive DNA patterns."""
-    patterns = _get_default_patterns()
-    async with get_db() as db:
-        existing = await db.execute(select(CompetitiveDNA).limit(1))
-        if existing.scalar_one_or_none():
-            logger.info("DNA patterns already seeded, skipping")
-            return
-
-        for pattern in patterns:
-            dna = CompetitiveDNA(**pattern)
-            db.add(dna)
-        await db.flush()
-    logger.info("Seeded %d competitive DNA patterns", len(patterns))
+    """No-op — DNA patterns are built from real signals, not seeded with hardcoded data."""
+    logger.debug("seed_dna_patterns: skipped (hardcoded data removed)")
 
 
 async def list_patterns(
@@ -356,55 +345,6 @@ def _generate_recommendations(
     return recs
 
 
-def _get_default_patterns() -> list[dict[str, Any]]:
-    """Return default competitive DNA pattern records."""
-    return [
-        {
-            "id": "dna-hiring-blinkit",
-            "competitor_id": "comp-blinkit",
-            "pattern_type": "hiring_spike",
-            "description": "Hiring spike precedes market launch for Blinkit. When jobs_added > 20, expect new city expansion within 60 days.",
-            "embedding": json.dumps([0.95] * 128),
-            "confidence_score": 0.85,
-        },
-        {
-            "id": "dna-ad-swiggy",
-            "competitor_id": "comp-swiggy",
-            "pattern_type": "ad_spend_increase",
-            "description": "Ad spend increase precedes product rollout for Swiggy. When ad_spend_change > 30, expect new product/category launch in 4-6 weeks.",
-            "embedding": json.dumps([0.88] * 128),
-            "confidence_score": 0.78,
-        },
-        {
-            "id": "dna-discount-zepto",
-            "competitor_id": "comp-zepto",
-            "pattern_type": "discount_campaign",
-            "description": "Discount campaign drives customer acquisition for Zepto. Expect user base growth of 15-25% within 30 days.",
-            "embedding": json.dumps([0.82] * 128),
-            "confidence_score": 0.72,
-        },
-        {
-            "id": "dna-exec-zomato",
-            "competitor_id": "comp-zomato",
-            "pattern_type": "executive_hire",
-            "description": "Key executive hire signals strategic pivot for Zomato. Expect strategic shift within 3-6 months.",
-            "embedding": json.dumps([0.75] * 128),
-            "confidence_score": 0.65,
-        },
-        {
-            "id": "dna-funding-zepto",
-            "competitor_id": "comp-zepto",
-            "pattern_type": "funding_round",
-            "description": "Funding round leads to aggressive expansion for Zepto. Expect 3-5 new city launches within 6 months.",
-            "embedding": json.dumps([0.70] * 128),
-            "confidence_score": 0.80,
-        },
-        {
-            "id": "dna-expansion-blinkit",
-            "competitor_id": "comp-blinkit",
-            "pattern_type": "city_expansion",
-            "description": "Blinkit expands to 5+ cities when hiring and ad spend both increase. Pattern: hiring + ad spend = multi-city launch.",
-            "embedding": json.dumps([0.90] * 128),
-            "confidence_score": 0.82,
-        },
-    ]
+def _get_default_patterns() -> list[dict]:
+    """Returns empty list — DNA patterns are derived from real signal data only."""
+    return []

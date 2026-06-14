@@ -35,6 +35,7 @@ from app.services.claude import (
     extract_new_competitors,
     generate_discovery_summary,
     validate_competitor,
+    recheck_competitors,
 )
 from app.services.scraper import scrape_and_analyze
 from app.agents.signal_hunter import serp_search, hunt_signals
@@ -113,14 +114,35 @@ async def run_discovery_pipeline(
         sub_category = enriched.get("sub_category", industry)
         geo = enriched.get("geographic_focus", "")
         key_features = enriched.get("key_features", [])
+        target_customers = enriched.get("target_customers", "businesses")
+        # Use scraped content or user-supplied description for richer AI context
+        scraped_desc = (description or sub_category)[:400]
 
         await _update_job(job_id, stage="Analyzing your company...", progress=12)
 
         # ── STEP 2 — Pass 1: Claude direct discovery ──────────────────────────
         await _update_job(job_id, stage="Finding direct competitors...", progress=15)
 
-        pass1 = await discover_competitors(company_name, industry, key_features, geo)
-        pass1_names = [c["name"] for c in pass1 if c.get("name")]
+        pass1_raw = await discover_competitors(
+            company_name=company_name,
+            website=website or "",
+            industry=industry,
+            sub_category=sub_category,
+            key_features=key_features,
+            geographic_focus=geo,
+            target_customers=target_customers,
+            description=scraped_desc,
+        )
+        # Recheck pass1 immediately — reject any wrong-industry hallucinations
+        pass1_raw = await recheck_competitors(
+            competitors=pass1_raw,
+            company_name=company_name,
+            industry=industry,
+            sub_category=sub_category,
+            target_customers=target_customers,
+            description=scraped_desc,
+        )
+        pass1_names = [c["name"] for c in pass1_raw if c.get("name")]
 
         await _update_job(job_id, stage="Finding direct competitors...", progress=28)
 

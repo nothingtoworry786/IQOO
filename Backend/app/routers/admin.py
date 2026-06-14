@@ -4,13 +4,106 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 
+import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin / Demo"])
+
+
+class ResetResponse(BaseModel):
+    sqlite_rows_deleted: int
+    supabase_tables_cleared: list[str]
+    supabase_tables_failed: list[str]
+    message: str
+
+
+@router.post(
+    "/reset-all",
+    response_model=ResetResponse,
+    summary="Delete ALL data from SQLite and Supabase (irreversible)",
+)
+async def reset_all_data() -> ResetResponse:
+    """Wipe every row from every table in both databases. Schema is preserved."""
+    # ── SQLite ────────────────────────────────────────────────────────────────
+    sqlite_tables = [
+        "agent_logs", "warroom_reports", "predictions", "competitive_dna",
+        "signals", "alerts", "competitor_markets", "competitor_relationships",
+        "markets", "competitors", "users",
+    ]
+    sqlite_total = 0
+
+    db_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./marketwatch.db")
+    if "postgresql" not in db_url:
+        try:
+            from sqlalchemy.ext.asyncio import create_async_engine
+            from sqlalchemy import text
+
+            engine = create_async_engine(db_url, echo=False)
+            async with engine.begin() as conn:
+                await conn.execute(text("PRAGMA foreign_keys = OFF"))
+                for tbl in sqlite_tables:
+                    try:
+                        r = await conn.execute(text(f'DELETE FROM "{tbl}"'))
+                        sqlite_total += r.rowcount
+                    except Exception:
+                        pass
+                await conn.execute(text("PRAGMA foreign_keys = ON"))
+            await engine.dispose()
+        except Exception as exc:
+            logger.warning("SQLite reset failed: %s", exc)
+
+    # ── Supabase ──────────────────────────────────────────────────────────────
+    supabase_tables = [
+        "agent_logs", "dna_profiles", "signals", "discovery_jobs",
+        "competitor_profiles", "competitors", "company_profiles",
+    ]
+    cleared: list[str] = []
+    failed: list[str] = []
+
+    supa_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    supa_key = os.getenv("SUPABASE_KEY", "")
+
+    if supa_url and supa_key:
+        headers = {
+            "apikey": supa_key,
+            "Authorization": f"Bearer {supa_key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            for tbl in supabase_tables:
+                try:
+                    resp = await client.delete(
+                        f"{supa_url}/rest/v1/{tbl}",
+                        headers=headers,
+                        params={"id": "neq.00000000-0000-0000-0000-000000000000"},
+                    )
+                    if resp.status_code in (200, 204):
+                        cleared.append(tbl)
+                    else:
+                        logger.warning("Supabase %s reset HTTP %d: %s", tbl, resp.status_code, resp.text[:200])
+                        failed.append(tbl)
+                except Exception as exc:
+                    logger.warning("Supabase %s reset error: %s", tbl, exc)
+                    failed.append(tbl)
+    else:
+        logger.warning("Supabase credentials not set — skipped")
+
+    return ResetResponse(
+        sqlite_rows_deleted=sqlite_total,
+        supabase_tables_cleared=cleared,
+        supabase_tables_failed=failed,
+        message=(
+            f"SQLite: {sqlite_total} rows deleted. "
+            f"Supabase: {len(cleared)}/{len(supabase_tables)} tables cleared."
+            + (f" Failed: {failed}" if failed else "")
+        ),
+    )
 
 
 class SimulateRequest(BaseModel):

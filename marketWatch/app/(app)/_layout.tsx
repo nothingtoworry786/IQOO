@@ -1,12 +1,12 @@
 import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { LayoutDashboard, Users, MessageCircle } from "lucide-react-native";
+import { LayoutDashboard, Users, MessageCircle, UserCircle } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/**
- * Main app tab layout — 3 tabs: Home, Competitors, Chatbot.
- * Dark theme with Strategy Purple accent.
- */
 export default function AppLayout() {
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = 64 + insets.bottom;
+
   return (
     <>
       <StatusBar style="light" />
@@ -17,8 +17,8 @@ export default function AppLayout() {
             backgroundColor: "#0F172A",
             borderTopColor: "#334155",
             borderTopWidth: 1,
-            height: 64,
-            paddingBottom: 8,
+            height: tabBarHeight,
+            paddingBottom: insets.bottom + 8,
             paddingTop: 6,
           },
           tabBarActiveTintColor: "#22D3EE",
@@ -30,34 +30,47 @@ export default function AppLayout() {
           },
         }}
       >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <LayoutDashboard color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="competitors"
-        options={{
-          title: "Competitors",
-          tabBarIcon: ({ color, size }) => (
-            <Users color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="chatbot"
-        options={{
-          title: "Chatbot",
-          tabBarIcon: ({ color, size }) => (
-            <MessageCircle color={color} size={size} />
-          ),
-        }}
-      />
-    </Tabs>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Home",
+            tabBarIcon: ({ color, size }) => (
+              <LayoutDashboard color={color} size={size} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="competitors"
+          options={{
+            title: "Competitors",
+            tabBarIcon: ({ color, size }) => (
+              <Users color={color} size={size} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="chatbot"
+          options={{
+            title: "Chatbot",
+            tabBarIcon: ({ color, size }) => (
+              <MessageCircle color={color} size={size} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+            tabBarIcon: ({ color, size }) => (
+              <UserCircle color={color} size={size} />
+            ),
+          }}
+        />
+        {/* Screens accessible via navigation but not shown in tab bar */}
+        <Tabs.Screen name="signals" options={{ href: null }} />
+        <Tabs.Screen name="predictions" options={{ href: null }} />
+        <Tabs.Screen name="warroom" options={{ href: null }} />
+      </Tabs>
     </>
   );
 }

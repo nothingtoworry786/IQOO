@@ -1,7 +1,8 @@
-"""All Anthropic Claude calls for the market discovery pipeline.
+"""AI calls for the market discovery pipeline.
 
-Every function returns structured data. JSON is extracted from the response
-and retried once if the initial parse fails.
+Routes through the configured AI provider (Groq, OpenRouter, Anthropic, Ollama)
+via get_ai_provider(). Every function returns structured data. JSON is
+extracted from the response and retried once if the initial parse fails.
 """
 
 from __future__ import annotations
@@ -11,54 +12,86 @@ import logging
 import re
 from typing import Any
 
-from anthropic import AsyncAnthropic
-
-from app.core.config import settings
+from app.core.ai_provider import get_ai_provider
 
 logger = logging.getLogger(__name__)
 
-_client: AsyncAnthropic | None = None
 
-
-def _get_client() -> AsyncAnthropic:
-    global _client
-    if _client is None:
-        if not settings.ANTHROPIC_API_KEY:
-            raise RuntimeError("ANTHROPIC_API_KEY is not set.")
-        _client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-    return _client
-
-
-async def _call(prompt: str, max_tokens: int = 2048) -> str:
-    client = _get_client()
-    response = await client.messages.create(
-        model=settings.ANTHROPIC_MODEL,
-        max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return response.content[0].text
+async def _call(prompt: str) -> str:
+    provider = get_ai_provider()
+    return await provider.generate(prompt)
 
 
 def _strip_fences(raw: str) -> str:
+    """Strip markdown fences AND <think>...</think> blocks (Gemma/DeepSeek thinking mode)."""
     raw = raw.strip()
+
+    # Remove <think>...</think> blocks produced by reasoning models
+    raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+
+    # Remove markdown code fences
     if raw.startswith("```"):
         raw = re.sub(r"^```\w*\n?", "", raw)
         raw = re.sub(r"\n?```$", "", raw.strip())
+
     return raw.strip()
 
 
-async def _call_json(prompt: str, max_tokens: int = 2048) -> Any:
-    raw = await _call(prompt, max_tokens)
+def _extract_json(raw: str) -> Any:
+    """Extract JSON from raw text — tries full parse first, then finds outermost {} or []."""
+    cleaned = _strip_fences(raw)
+
+    # Try direct parse
     try:
-        return json.loads(_strip_fences(raw))
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    # Try to pull the first { ... } block
+    brace = cleaned.find("{")
+    if brace != -1:
+        depth = 0
+        for i, ch in enumerate(cleaned[brace:], start=brace):
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(cleaned[brace : i + 1])
+                    except json.JSONDecodeError:
+                        break
+
+    # Try to pull the first [ ... ] block
+    bracket = cleaned.find("[")
+    if bracket != -1:
+        depth = 0
+        for i, ch in enumerate(cleaned[bracket:], start=bracket):
+            if ch == "[":
+                depth += 1
+            elif ch == "]":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(cleaned[bracket : i + 1])
+                    except json.JSONDecodeError:
+                        break
+
+    raise json.JSONDecodeError("No valid JSON found in response", cleaned, 0)
+
+
+async def _call_json(prompt: str) -> Any:
+    raw = await _call(prompt)
+    try:
+        return _extract_json(raw)
     except json.JSONDecodeError:
         retry_prompt = (
             prompt
-            + "\n\nIMPORTANT: Your last response was not valid JSON. "
-            "Return ONLY raw JSON — no markdown fences, no extra text."
+            + "\n\nIMPORTANT: Your previous response was not valid JSON. "
+            "Return ONLY raw JSON — no markdown fences, no <think> blocks, no extra text."
         )
-        raw2 = await _call(retry_prompt, max_tokens)
-        return json.loads(_strip_fences(raw2))
+        raw2 = await _call(retry_prompt)
+        return _extract_json(raw2)
 
 
 # ── Public functions ──────────────────────────────────────────────────────────
@@ -69,26 +102,37 @@ async def enrich_company_profile(
     description: str,
     scraped: dict | None,
 ) -> dict[str, Any]:
-    """Return enriched company profile from Claude."""
+    """Return enriched company profile from AI."""
+    # Use up to 2000 chars of scraped content for better context
     scraped_text = ""
     if scraped:
-        scraped_text = f"\n\nWebsite content (first 1000 chars):\n{scraped.get('content', '')[:1000]}"
+        content = scraped.get("content", "")[:2000]
+        title = scraped.get("title", "")
+        meta = scraped.get("meta_description", "")
+        scraped_text = f"\n\nWebsite title: {title}\nMeta description: {meta}\nPage content:\n{content}"
 
-    prompt = f"""You are a market research analyst. Enrich this company profile.
+    prompt = f"""You are a market research analyst. Analyze this company and return a structured profile.
 
-Company: {company_name}
+Company Name: {company_name}
 Website: {website or "unknown"}
 Description: {description}{scraped_text}
 
-Return ONLY valid JSON:
+Based on the above information, identify:
+- The EXACT industry this company operates in (e.g. "Ed-Tech", "Quick Commerce", "FinTech", "SaaS", etc.)
+- The specific sub-category/niche
+- Their key product features
+- Their target customers
+- Their geographic focus
+
+Return ONLY valid JSON with no extra text:
 {{
-  "industry": "string (broad industry)",
-  "sub_category": "string (specific niche/sub-sector)",
+  "industry": "specific industry name",
+  "sub_category": "specific niche within that industry",
   "key_features": ["feature1", "feature2", "feature3"],
-  "geographic_focus": "string (e.g. India, Global, Southeast Asia)",
-  "target_customers": "string (who they serve)",
-  "business_model": "string (SaaS/Marketplace/D2C/etc)",
-  "founded_estimate": "string or null"
+  "geographic_focus": "e.g. India, Global, Southeast Asia",
+  "target_customers": "who they serve (e.g. 'engineering students in India')",
+  "business_model": "SaaS/Marketplace/D2C/B2C/etc",
+  "founded_estimate": "year or null"
 }}"""
 
     try:
@@ -108,36 +152,135 @@ Return ONLY valid JSON:
 
 async def discover_competitors(
     company_name: str,
+    website: str,
     industry: str,
+    sub_category: str,
     key_features: list[str],
     geographic_focus: str,
+    target_customers: str,
+    description: str,
 ) -> list[dict[str, str]]:
-    """Pass 1 — direct competitor discovery via Claude."""
-    features = ", ".join(key_features[:5]) if key_features else "various features"
+    """Discover 5 real direct competitors using full company context."""
+    features = ", ".join(key_features[:5]) if key_features else "not specified"
 
-    prompt = f"""You are a competitive intelligence expert.
+    prompt = f"""You are a competitive intelligence expert specializing in {industry}.
 
-Company: {company_name}
-Industry: {industry}
-Key Features: {features}
-Geographic Focus: {geographic_focus}
+I need you to find the TOP 5 DIRECT competitors of "{company_name}".
 
-Name exactly 5 REAL, well-known direct competitors that operate in the same space.
-Only include companies that genuinely exist and compete in this market.
+COMPANY PROFILE:
+- Name: {company_name}
+- Website: {website}
+- Industry: {industry}
+- Specific Category: {sub_category}
+- What they do: {description[:400]}
+- Key features: {features}
+- Target customers: {target_customers}
+- Geographic focus: {geographic_focus}
 
-Return ONLY valid JSON:
+STRICT RULES:
+1. Competitors MUST be in the EXACT same category: {sub_category}
+2. Competitors MUST target the SAME customers: {target_customers}
+3. Competitors MUST operate in the SAME geography: {geographic_focus}
+4. Only include REAL companies that genuinely exist
+5. Do NOT include {company_name} itself
+6. Do NOT include companies from unrelated industries
+
+Example: If the company is an ed-tech coding bootcamp, return OTHER ed-tech coding bootcamps — NOT grocery apps, food delivery, or unrelated software.
+
+Return ONLY valid JSON with no extra text:
 {{
   "competitors": [
-    {{"name": "CompanyName", "reason": "One sentence of direct competitive overlap"}}
+    {{
+      "name": "ExactCompanyName",
+      "website": "https://their-website.com",
+      "reason": "1-2 sentences: exactly how they directly compete with {company_name}"
+    }}
   ]
 }}"""
 
     try:
         data = await _call_json(prompt)
-        return data.get("competitors", [])
+        competitors = data.get("competitors", [])
+        logger.info("discover_competitors returned %d raw results", len(competitors))
+        return competitors
     except Exception as exc:
         logger.warning("discover_competitors failed: %s", exc)
         return []
+
+
+async def recheck_competitors(
+    competitors: list[dict],
+    company_name: str,
+    industry: str,
+    sub_category: str,
+    target_customers: str,
+    description: str,
+) -> list[dict]:
+    """
+    Validation layer — audits discovered competitors and rejects any that are
+    not genuinely in the same industry/category as the target company.
+    """
+    if not competitors:
+        return []
+
+    comp_list = "\n".join(
+        f"{i + 1}. {c.get('name', '?')} — {c.get('reason', c.get('description', 'no details'))}"
+        for i, c in enumerate(competitors)
+    )
+
+    prompt = f"""You are a strict competitive intelligence auditor. Your job is to VERIFY or REJECT each proposed competitor.
+
+COMPANY BEING RESEARCHED:
+- Name: {company_name}
+- What they do: {description[:300]}
+- Exact industry category: {sub_category}
+- Target customers: {target_customers}
+
+PROPOSED COMPETITORS (verify each one):
+{comp_list}
+
+For EACH proposed competitor, decide:
+- KEEP: it genuinely competes with {company_name} in {sub_category} for the same customers
+- REJECT: it is from a different industry, targets different customers, or is clearly wrong
+
+Be STRICT. If a company like "Swiggy" or "Zepto" (grocery delivery) appears when the company is an ed-tech firm, REJECT it.
+If a company like "Coursera" appears when the company sells car insurance, REJECT it.
+
+Return ONLY valid JSON:
+{{
+  "results": [
+    {{
+      "name": "CompanyName",
+      "decision": "KEEP",
+      "reason": "one sentence justification"
+    }}
+  ]
+}}"""
+
+    try:
+        data = await _call_json(prompt)
+        results = data.get("results", [])
+
+        kept_names = {r["name"].lower() for r in results if r.get("decision") == "KEEP"}
+        rejected = [r for r in results if r.get("decision") == "REJECT"]
+
+        if rejected:
+            logger.warning(
+                "Recheck REJECTED %d competitors: %s",
+                len(rejected),
+                [r["name"] for r in rejected],
+            )
+
+        filtered = [c for c in competitors if c.get("name", "").lower() in kept_names]
+        logger.info(
+            "Recheck kept %d / %d competitors",
+            len(filtered), len(competitors),
+        )
+        return filtered
+
+    except Exception as exc:
+        logger.warning("recheck_competitors failed: %s — returning unfiltered list", exc)
+        return competitors
 
 
 async def extract_new_competitors(
@@ -146,14 +289,16 @@ async def extract_new_competitors(
     existing_names: list[str],
     sub_category: str,
 ) -> list[str]:
-    """Pass 2 — extract NEW competitor names from SerpAPI search text."""
+    """Extract NEW competitor names from SerpAPI search results."""
     exclude = ", ".join(existing_names[:10]) if existing_names else "none"
 
-    prompt = f"""From the search results below, extract company names that compete with {company_name} in {sub_category}.
+    prompt = f"""From the search results below, extract company names that are DIRECT competitors of {company_name} in {sub_category}.
 
-Exclude: {exclude} and {company_name} itself.
-Only extract real company names, not generic terms.
-Extract 3-5 names maximum.
+Rules:
+- Exclude: {exclude} and {company_name} itself
+- Only real company names (not generic terms)
+- Only companies in the SAME category as {company_name}: {sub_category}
+- Extract 3-5 names maximum
 
 Search results:
 {serp_text[:4000]}
@@ -177,26 +322,28 @@ async def validate_competitor(
     color_accent: str,
     guessed_website: str = "",
 ) -> dict[str, Any]:
-    """Pass 3 — validate one competitor and enrich its profile."""
+    """Enrich and validate one competitor's full profile."""
     website_hint = f"\nKnown website: {guessed_website}" if guessed_website else ""
 
     prompt = f"""You are a competitive intelligence analyst.
 
 Competitor to profile: {competitor_name}{website_hint}
-Competes with: {company_name}
-Market: {sub_category}, {geographic_focus}
+This company competes with: {company_name}
+Market category: {sub_category}, {geographic_focus}
 
-Provide a competitive profile. Use the known website if provided; otherwise provide a best guess.
+Provide a structured competitive profile for {competitor_name}.
 
 Return ONLY valid JSON:
 {{
   "name": "{competitor_name}",
-  "website": "https://example.com",
-  "description": "2-3 sentence description of what they do and how they compete",
-  "threat_level": "LOW" | "MEDIUM" | "HIGH",
-  "threat_reason": "Specific reason for threat level to {company_name}",
-  "competitive_edge": "Their main advantage over {company_name}"
-}}"""
+  "website": "https://their-actual-website.com",
+  "description": "2-3 sentences: what they do and how they compete with {company_name}",
+  "threat_level": "LOW",
+  "threat_reason": "specific reason for threat level to {company_name}",
+  "competitive_edge": "their main advantage over {company_name}"
+}}
+
+threat_level must be exactly one of: "LOW", "MEDIUM", "HIGH" """
 
     try:
         data = await _call_json(prompt)
@@ -208,7 +355,7 @@ Return ONLY valid JSON:
         return {
             "name": competitor_name,
             "website": guessed_website or "",
-            "description": f"{competitor_name} is a competitor in {sub_category}.",
+            "description": f"{competitor_name} competes in the {sub_category} space.",
             "threat_level": "MEDIUM",
             "threat_reason": "Operates in the same market segment.",
             "competitive_edge": "Established market presence.",
@@ -233,11 +380,11 @@ Competitors found:
 Be specific, strategic, and actionable. No bullet points — flowing prose."""
 
     try:
-        return (await _call(prompt, max_tokens=300)).strip()
+        return (await _call(prompt)).strip()
     except Exception as exc:
         logger.warning("generate_discovery_summary failed: %s", exc)
         n = len(competitors)
-        high = sum(1 for c in competitors if c.get("threat_level") == "HIGH")
+        high = sum(1 for c in competitors if str(c.get("threat_level", "")).upper() == "HIGH")
         return (
             f"MarketWatch identified {n} competitors for {company_name}, "
             f"with {high} rated as high threat. Continuous monitoring is now active."
@@ -251,8 +398,7 @@ async def generate_dna_profile(
 ) -> dict[str, Any]:
     """Build a behavioral DNA profile from accumulated signals."""
     signal_lines = "\n".join(
-        f"- [{s.get('type', 'Signal')}] {s.get('title', '')} "
-        f"(intent: {s.get('intent_score', 0)})"
+        f"- [{s.get('type', 'Signal')}] {s.get('title', '')} (intent: {s.get('intent_score', 0)})"
         for s in signals[:25]
     )
 
@@ -269,24 +415,26 @@ Analyze behavioral patterns and build a DNA profile.
 Return ONLY valid JSON:
 {{
   "price_aggression": 0.0,
-  "launch_style": "gradual" | "aggressive" | "stealth",
-  "expansion_speed": "slow" | "moderate" | "rapid",
-  "expansion_trigger": "funding" | "hiring" | "partnerships" | "organic",
-  "signal_to_launch_days": 30,
-  "known_weakness": "One specific weakness based on signals",
+  "launch_style": "gradual",
+  "expansion_speed": "moderate",
+  "expansion_trigger": "organic",
+  "signal_to_launch_days": 45,
+  "known_weakness": "one specific weakness based on signals",
   "patterns": [
-    "Behavioral pattern 1 observed from signals",
-    "Behavioral pattern 2 observed from signals",
-    "Behavioral pattern 3 observed from signals"
+    "behavioral pattern 1 from signals",
+    "behavioral pattern 2 from signals",
+    "behavioral pattern 3 from signals"
   ],
-  "behavioral_summary": "2-sentence summary of their competitive behavior style"
+  "behavioral_summary": "2-sentence summary of their competitive behavior"
 }}
 
-price_aggression: float 0.0 (no discounting) to 1.0 (extremely aggressive pricing)
-signal_to_launch_days: estimated days from first signal to product launch"""
+price_aggression: float 0.0 (no discounting) to 1.0 (extremely aggressive)
+launch_style must be: "gradual", "aggressive", or "stealth"
+expansion_speed must be: "slow", "moderate", or "rapid"
+expansion_trigger must be: "funding", "hiring", "partnerships", or "organic" """
 
     try:
-        data = await _call_json(prompt, max_tokens=1024)
+        data = await _call_json(prompt)
         data["raw_signals_count"] = len(signals)
         return data
     except Exception as exc:
@@ -330,7 +478,9 @@ Description: {description[:300]}
 Respond with ONLY a single integer between 0 and 100. No other text."""
 
     try:
-        raw = await _call(prompt, max_tokens=10)
+        raw = await _call(prompt)
+        # Strip thinking blocks before extracting number
+        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
         match = re.search(r"\d+", raw)
         score = int(match.group()) if match else 50
         return max(0, min(100, score))

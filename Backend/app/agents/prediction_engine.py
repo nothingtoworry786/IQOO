@@ -69,7 +69,8 @@ If should_predict is false, set prediction to "" but keep all other fields."""
     try:
         provider = get_ai_provider()
         raw = await provider.generate(prompt)
-        cleaned = raw.strip()
+        # Strip <think>...</think> blocks produced by Gemma/DeepSeek reasoning models
+        cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
         if cleaned.startswith("```"):
             cleaned = re.sub(r"^```\w*\n?", "", cleaned)
             cleaned = re.sub(r"\n?```$", "", cleaned)
@@ -188,7 +189,8 @@ impact_score: float 0-10. Make actions specific and time-bound — no generic ad
     try:
         provider = get_ai_provider()
         raw = await provider.generate(prompt)
-        cleaned = raw.strip()
+        # Strip <think>...</think> blocks produced by Gemma/DeepSeek reasoning models
+        cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
         if cleaned.startswith("```"):
             cleaned = re.sub(r"^```\w*\n?", "", cleaned)
             cleaned = re.sub(r"\n?```$", "", cleaned)

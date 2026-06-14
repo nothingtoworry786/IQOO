@@ -4,37 +4,20 @@ import { Redirect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { api } from "../services/apiClient";
 
-/**
- * Root index — checks if onboarding has been completed by querying the backend.
- * - If competitors exist → redirect to main app (tabs)
- * - If no competitors → redirect to onboarding flow
- * - While checking → show a brief loading splash
- */
 export default function RootIndex() {
   const [status, setStatus] = useState<"loading" | "onboarded" | "onboarding">("loading");
 
   useEffect(() => {
     let mounted = true;
-
-    async function checkOnboarding() {
-      try {
-        const competitors = await api.competitors.list(1);
-        if (mounted) {
-          setStatus(competitors.length > 0 ? "onboarded" : "onboarding");
-        }
-      } catch {
-        // Backend unreachable — assume not onboarded and show onboarding
-        if (mounted) {
-          setStatus("onboarding");
-        }
-      }
-    }
-
-    checkOnboarding();
-
-    return () => {
-      mounted = false;
-    };
+    api.competitors
+      .list(1)
+      .then((competitors) => {
+        if (mounted) setStatus(competitors.length > 0 ? "onboarded" : "onboarding");
+      })
+      .catch(() => {
+        if (mounted) setStatus("onboarding");
+      });
+    return () => { mounted = false; };
   }, []);
 
   if (status === "loading") {
@@ -48,10 +31,10 @@ export default function RootIndex() {
   }
 
   if (status === "onboarded") {
-    return <Redirect href={"/(app)" as any} />;
+    return <Redirect href={"/(app)" as never} />;
   }
 
-  return <Redirect href={"/(onboarding)" as any} />;
+  return <Redirect href={"/(onboarding)" as never} />;
 }
 
 const styles = StyleSheet.create({

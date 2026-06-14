@@ -32,6 +32,9 @@ class Settings:
     OPENROUTER_MODEL: str = "openai/gpt-4o-mini"
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
+    OLLAMA_HOST: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "gemma4:latest"
+    RAPIDAPI_KEY: str = ""
 
     def __init__(self) -> None:
         self.HOST = os.getenv("HOST", "0.0.0.0")
@@ -49,11 +52,15 @@ class Settings:
         self.OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
         self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
         self.ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+        self.OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        self.OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:latest")
         # ── Supabase / new stack ──────────────────────────────────────────────
         self.SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
         self.SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
         self.SERPAPI_KEY: str = os.getenv("SERPAPI_KEY", "")
+        self.RAPIDAPI_KEY: str = os.getenv("RAPIDAPI_KEY", "")
         self.CHROMADB_PATH: str = os.getenv("CHROMADB_PATH", "./chromadb_data")
+        self.SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
         if "postgresql" in self.DATABASE_URL:
             logger.info("Using PostgreSQL database (%s...)", self.DATABASE_URL.split("@")[-1] if "@" in self.DATABASE_URL else self.DATABASE_URL[:30])
 
@@ -67,8 +74,8 @@ class Settings:
         self._validate()
 
     def _validate(self) -> None:
-        if self.AI_PROVIDER not in {"groq", "openrouter", "anthropic", "none"}:
-            raise ValueError(f"Invalid AI_PROVIDER '{self.AI_PROVIDER}'. Must be 'groq', 'openrouter', 'anthropic', or 'none'.")
+        if self.AI_PROVIDER not in {"groq", "openrouter", "anthropic", "ollama", "none"}:
+            raise ValueError(f"Invalid AI_PROVIDER '{self.AI_PROVIDER}'. Must be 'groq', 'openrouter', 'anthropic', 'ollama', or 'none'.")
         if self.AI_PROVIDER == "groq" and not self.GROQ_API_KEY:
             raise ValueError("GROQ_API_KEY is required when AI_PROVIDER is 'groq'.")
         if self.AI_PROVIDER == "openrouter" and not self.OPENROUTER_API_KEY:

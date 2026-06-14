@@ -15,9 +15,13 @@ import React, {
   useContext,
   useReducer,
   useCallback,
+  useEffect,
   type ReactNode,
 } from "react";
 import type { Signal, WarRoomReport } from "../services/apiClient";
+import { getItem, setItem } from "../services/storage";
+
+const PERSONA_STORAGE_KEY = "persona_preference";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -83,8 +87,18 @@ const PersonaContext = createContext<PersonaContextValue | undefined>(undefined)
 export function PersonaProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(personaReducer, { persona: "Founder" });
 
+  // Restore persisted persona on mount
+  useEffect(() => {
+    getItem<Persona>(PERSONA_STORAGE_KEY).then((saved) => {
+      if (saved === "Founder" || saved === "Marketing") {
+        dispatch({ type: "SET_PERSONA", persona: saved });
+      }
+    });
+  }, []);
+
   const setPersona = useCallback((persona: Persona) => {
     dispatch({ type: "SET_PERSONA", persona });
+    setItem(PERSONA_STORAGE_KEY, persona);
   }, []);
 
   /**

@@ -8,8 +8,8 @@ import {
   Pressable,
   RefreshControl,
   TextInput,
-  Dimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Users,
   TrendingUp,
@@ -34,8 +34,6 @@ import {
   type Signal,
   type Prediction,
 } from "../../services/apiClient";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Color Palette (MarketWatch: Cyan, Green, Amber)
@@ -648,25 +646,30 @@ function CompetitorDetail({
   const [signals, setSignals] = useState<Signal[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>("timeline");
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [sigData, predData] = await Promise.all([
-          api.signals.list({ competitor_id: competitor.id, sort_by: "newest", limit: 50 }),
-          api.predictions.list({ competitor_id: competitor.id, limit: 10 }),
-        ]);
-        setSignals(sigData);
-        setPredictions(predData);
-      } catch (err) {
-        // Silent fail
-      } finally {
-        setLoading(false);
-      }
+  const loadData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const [sigData, predData] = await Promise.all([
+        api.signals.list({ competitor_id: competitor.id, sort_by: "newest", limit: 50 }),
+        api.predictions.list({ competitor_id: competitor.id, limit: 10 }),
+      ]);
+      setSignals(sigData);
+      setPredictions(predData);
+    } catch (err) {
+      // Silent fail
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    load();
   }, [competitor.id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Aggregate stats
   const avgImpact = signals.length > 0
@@ -680,7 +683,7 @@ function CompetitorDetail({
     : null;
 
   return (
-    <View style={detail.container}>
+    <SafeAreaView style={detail.container} edges={["top"]}>
       {/* Sticky Header */}
       <View style={detail.stickyHeader}>
         <Pressable style={detail.backBtn} onPress={onBack}>
@@ -689,7 +692,18 @@ function CompetitorDetail({
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={detail.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={detail.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadData(true)}
+            tintColor={BRAND_PURPLE}
+            colors={[BRAND_PURPLE]}
+          />
+        }
+      >
         {/* Profile Card */}
         <View style={detail.profileCard}>
           <View style={detail.profileTopRow}>
@@ -839,7 +853,7 @@ function CompetitorDetail({
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -1177,7 +1191,7 @@ export default function CompetitorsScreen() {
   });
 
   return (
-    <View style={screen.container}>
+    <SafeAreaView style={screen.container} edges={["top"]}>
       {/* Sticky Search + Filter Header */}
       <View style={screen.stickyHeader}>
         <View style={screen.titleRow}>
@@ -1281,7 +1295,7 @@ export default function CompetitorsScreen() {
 
         <View style={{ height: 20 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
